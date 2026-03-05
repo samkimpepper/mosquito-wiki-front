@@ -10,6 +10,7 @@ export function SwatchDetailPage() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [sortOption, setSortOption] = useState("인기순 정렬");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
 
@@ -131,13 +132,31 @@ export function SwatchDetailPage() {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               
-              <div className="relative w-80">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="검색"
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                />
+              <div className="flex items-center gap-4">
+                <div className="relative w-80">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="검색"
+                    className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  />
+                </div>
+                
+                {isLoggedIn ? (
+                  <button
+                    onClick={() => setIsLoggedIn(false)}
+                    className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                  >
+                    로그아웃
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                  >
+                    로그인
+                  </button>
+                )}
               </div>
             </div>
 

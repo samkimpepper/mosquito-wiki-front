@@ -2,13 +2,19 @@ import { Sidebar } from "../components/Sidebar";
 import { FeedCard } from "../components/FeedCard";
 import { DiscountCard } from "../components/DiscountCard";
 import { Search, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { useAuth } from "../../context/AuthContext";
 
 export function HomePage() {
   const navigate = useNavigate();
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("립스틱");
+  //const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, loading, logout } = useAuth();
+
+  if (loading) return <div>로딩중...</div>;
+  
 
   const categories = ["립스틱", "하이라이터", "블러셔", "아이섀도우", "립틴트"];
 
@@ -117,12 +123,21 @@ export function HomePage() {
                   />
                 </div>
                 
-                <button
-                  onClick={() => navigate('/login')}
-                  className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
-                >
-                  로그인
-                </button>
+                {user ? (
+                  <button
+                    onClick={logout}
+                    className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                  >
+                    로그아웃
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                  >
+                    로그인
+                  </button>
+                )}
               </div>
             </div>
           </div>
