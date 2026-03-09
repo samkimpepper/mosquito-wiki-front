@@ -1,20 +1,13 @@
-import { Sidebar } from "../components/Sidebar";
 import { FeedCard } from "../components/FeedCard";
 import { DiscountCard } from "../components/DiscountCard";
-import { Search, ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from "../../context/AuthContext";
 
 export function HomePage() {
   const navigate = useNavigate();
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("립스틱");
-  //const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const { user, loading, logout } = useAuth();
-
-  if (loading) return <div>로딩중...</div>;
-  
 
   const categories = ["립스틱", "하이라이터", "블러셔", "아이섀도우", "립틴트"];
 
@@ -96,119 +89,69 @@ export function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* 좌측 사이드바 */}
-      <Sidebar 
-        userProfile={{
-          avatar: "https://images.unsplash.com/photo-1722270608841-35d7372a2e85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0JTIwZmFjZSUyMHByb2ZpbGV8ZW58MXx8fHwxNzcyNjAyMDQxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-          username: "김채원"
-        }}
-      />
-
-      {/* 메인 컨텐츠 */}
-      <div className="flex-1 ml-64">
-        {/* 상단 바 - 로고와 검색창 */}
-        <div className="border-b border-gray-100">
-          <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between py-4">
-              <h1 className="text-lg font-medium text-gray-700">모기위키</h1>
-              
-              <div className="flex items-center gap-4">
-                <div className="relative w-80">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="검색"
-                    className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                </div>
-                
-                {user ? (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* 좋아요 많은 것들 섹션 */}
+      <div className="mb-12">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl">좋아요 많은 것들</h2>
+          
+          {/* 카테고리 드롭다운 */}
+          <div className="relative">
+            <button
+              onClick={() => setCategoryMenuOpen(!categoryMenuOpen)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+            >
+              <span>{selectedCategory}</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            
+            {categoryMenuOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                {categories.map((category) => (
                   <button
-                    onClick={logout}
-                    className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                    key={category}
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      setCategoryMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg transition-colors"
                   >
-                    로그아웃
+                    {category}
                   </button>
-                ) : (
-                  <button
-                    onClick={() => navigate('/login')}
-                    className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
-                  >
-                    로그인
-                  </button>
-                )}
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {popularProducts.map((product) => (
+            <div 
+              key={product.id}
+              onClick={() => navigate('/swatch-detail')}
+              className="cursor-pointer"
+            >
+              <FeedCard
+                images={product.images}
+                productName={product.productName}
+                userProfile={product.userProfile}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
 
-        {/* 메인 피드 */}
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          {/* 좋아요 많은 것들 섹션 */}
-          <div className="mb-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl">좋아요 많은 것들</h2>
-              
-              {/* 카테고리 드롭다운 */}
-              <div className="relative">
-                <button
-                  onClick={() => setCategoryMenuOpen(!categoryMenuOpen)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"
-                >
-                  <span>{selectedCategory}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-                
-                {categoryMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                    {categories.map((category) => (
-                      <button
-                        key={category}
-                        onClick={() => {
-                          setSelectedCategory(category);
-                          setCategoryMenuOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg transition-colors"
-                      >
-                        {category}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {popularProducts.map((product) => (
-                <div 
-                  key={product.id}
-                  onClick={() => navigate('/swatch-detail')}
-                  className="cursor-pointer"
-                >
-                  <FeedCard
-                    images={product.images}
-                    productName={product.productName}
-                    userProfile={product.userProfile}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 할인중인거 섹션 */}
-          <div>
-            <h2 className="text-2xl mb-6">할인중인거</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {discountProducts.map((product) => (
-                <DiscountCard
-                  key={product.id}
-                  image={product.image}
-                  text={product.text}
-                />
-              ))}
-            </div>
-          </div>
+      {/* 할인중인거 섹션 */}
+      <div>
+        <h2 className="text-2xl mb-6">할인중인거</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {discountProducts.map((product) => (
+            <DiscountCard
+              key={product.id}
+              image={product.image}
+              text={product.text}
+            />
+          ))}
         </div>
       </div>
     </div>

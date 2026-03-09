@@ -1,7 +1,6 @@
 import { SwatchCard } from "../components/SwatchCard";
 import { TwitterEmbed } from "../components/TwitterEmbed";
-import { Sidebar } from "../components/Sidebar";
-import { ArrowLeft, Search, Image, Heart, Bookmark, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Image, Heart, Bookmark, ArrowUpDown } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -10,7 +9,6 @@ export function SwatchDetailPage() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [sortOption, setSortOption] = useState("인기순 정렬");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
 
@@ -109,183 +107,145 @@ export function SwatchDetailPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* 좌측 사이드바 */}
-      <Sidebar 
-        userProfile={{
-          avatar: "https://images.unsplash.com/photo-1722270608841-35d7372a2e85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0JTIwZmFjZSUyMHByb2ZpbGV8ZW58MXx8fHwxNzcyNjAyMDQxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-          username: "김채원"
-        }}
-      />
+    <>
+      {/* 헤더 - 제품 메인 정보 */}
+      <div className="border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4">
+          {/* 뒤로가기 버튼 */}
+          <div className="py-4">
+            <button 
+              onClick={() => navigate('/')}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+          </div>
 
-      {/* 메인 컨텐츠 */}
-      <div className="flex-1 ml-64">
-        {/* 헤더 - 제품 메인 정보 */}
-        <div className="border-b border-gray-100">
-          <div className="max-w-6xl mx-auto px-4">
-            {/* 상단 바 - 뒤로가기와 검색창 */}
-            <div className="flex items-center justify-between py-4 mb-8">
-              <button 
-                onClick={() => navigate('/')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
+          <div className="flex flex-col md:flex-row gap-8 items-start pb-12">
+            {/* 제품 메인 이미지 */}
+            <div className="w-full md:w-1/3">
+              <img 
+                src="https://images.unsplash.com/photo-1733045842176-e1bbfd3fe552?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBsaXBzdGljayUyMHByb2R1Y3QlMjB3aGl0ZSUyMGJhY2tncm91bmR8ZW58MXx8fHwxNzcyNTE1ODAyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+                alt="벨벳 매트 립스틱" 
+                className="w-full rounded-lg"
+              />
+            </div>
+            
+            {/* 제품 정보 */}
+            <div className="flex-1">
+              <h1 className="text-3xl mb-3">벨벳 매트 립스틱</h1>
+              <p className="text-xl text-gray-500 mb-6">₩28,000</p>
               
-              <div className="flex items-center gap-4">
-                <div className="relative w-80">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="검색"
-                    className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+              {/* 컬러 태그들 */}
+              <div className="flex flex-wrap gap-2 mb-8">
+                {colorTags.map((tag) => (
+                  <div 
+                    key={tag.name}
+                    className="px-3 py-1 rounded text-xs"
+                    style={{ backgroundColor: tag.color, color: '#fff' }}
+                  >
+                    {tag.name}
+                  </div>
+                ))}
+              </div>
+
+              {/* 아이콘 섹션 */}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Image className="w-5 h-5" />
+                  <span className="text-sm">142</span>
+                </div>
+                
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Heart className="w-5 h-5" />
+                  <span className="text-sm">1.2k</span>
+                </div>
+                
+                <button 
+                  onClick={() => setIsBookmarked(!isBookmarked)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <Bookmark 
+                    className="w-5 h-5" 
+                    fill={isBookmarked ? "currentColor" : "none"}
                   />
-                </div>
-                
-                {isLoggedIn ? (
-                  <button
-                    onClick={() => setIsLoggedIn(false)}
-                    className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg text-sm hover:bg-gray-200 transition-colors"
-                  >
-                    로그아웃
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => navigate('/login')}
-                    className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
-                  >
-                    로그인
-                  </button>
-                )}
+                </button>
               </div>
             </div>
-
-            <div className="flex flex-col md:flex-row gap-8 items-start pb-12">
-              {/* 제품 메인 이미지 */}
-              <div className="w-full md:w-1/3">
-                <img 
-                  src="https://images.unsplash.com/photo-1733045842176-e1bbfd3fe552?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBsaXBzdGljayUyMHByb2R1Y3QlMjB3aGl0ZSUyMGJhY2tncm91bmR8ZW58MXx8fHwxNzcyNTE1ODAyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                  alt="벨벳 매트 립스틱" 
-                  className="w-full rounded-lg"
-                />
-              </div>
-              
-              {/* 제품 정보 */}
-              <div className="flex-1">
-                <h1 className="text-3xl mb-3">벨벳 매트 립스틱</h1>
-                <p className="text-xl text-gray-500 mb-6">₩28,000</p>
-                
-                {/* 컬러 태그들 */}
-                <div className="flex flex-wrap gap-2 mb-8">
-                  {colorTags.map((tag) => (
-                    <div 
-                      key={tag.name}
-                      className="px-3 py-1 rounded text-xs"
-                      style={{ backgroundColor: tag.color, color: '#fff' }}
-                    >
-                      {tag.name}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 아이콘 섹션 */}
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Image className="w-5 h-5" />
-                    <span className="text-sm">142</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Heart className="w-5 h-5" />
-                    <span className="text-sm">1.2k</span>
-                  </div>
-                  
-                  <button 
-                    onClick={() => setIsBookmarked(!isBookmarked)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <Bookmark 
-                      className="w-5 h-5" 
-                      fill={isBookmarked ? "currentColor" : "none"}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 스와치 카드 그리드 */}
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl">컬러 선택</h2>
-            
-            {/* 정렬 드롭다운 */}
-            <div className="relative">
-              <button
-                onClick={() => setSortMenuOpen(!sortMenuOpen)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"
-              >
-                <ArrowUpDown className="w-4 h-4" />
-                <span>{sortOption}</span>
-              </button>
-              
-              {sortMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                  {sortOptions.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => {
-                        setSortOption(option);
-                        setSortMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg transition-colors"
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {swatches.slice(0, 2).map((swatch) => (
-              <SwatchCard
-                key={swatch.id}
-                images={swatch.images}
-                name={swatch.name}
-                description={swatch.description}
-                userProfile={swatch.userProfile}
-              />
-            ))}
-            
-            {/* 트위터 임베드 카드 */}
-            <TwitterEmbed
-              username="모기모기초"
-              handle="mogimogi098"
-              isVerified={true}
-              content={`사진을 대충 찍긴 했는데
-쥬디님칼레션 있으면 뭔가 되게 귀엽고(저말고요) 있어보여서(?) 애용합니다..
-오시탑말 색 가족팀들 노리는중..`}
-              images={swatches[2].images}
-              timestamp="1:56 PM · Mar 4, 2026"
-              likes={1}
-              userProfile={swatches[2].userProfile.avatar}
-            />
-            
-            {swatches.slice(3).map((swatch) => (
-              <SwatchCard
-                key={swatch.id}
-                images={swatch.images}
-                name={swatch.name}
-                description={swatch.description}
-                userProfile={swatch.userProfile}
-              />
-            ))}
           </div>
         </div>
       </div>
-    </div>
+
+      {/* 스와치 카드 그리드 */}
+      <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl">컬러 선택</h2>
+          
+          {/* 정렬 드롭다운 */}
+          <div className="relative">
+            <button
+              onClick={() => setSortMenuOpen(!sortMenuOpen)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+            >
+              <ArrowUpDown className="w-4 h-4" />
+              <span>{sortOption}</span>
+            </button>
+            
+            {sortMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                {sortOptions.map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      setSortOption(option);
+                      setSortMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg transition-colors"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {swatches.slice(0, 2).map((swatch) => (
+            <SwatchCard
+              key={swatch.id}
+              images={swatch.images}
+              name={swatch.name}
+              description={swatch.description}
+              userProfile={swatch.userProfile}
+            />
+          ))}
+          
+          {/* 트위터 임베드 카드 */}
+          <TwitterEmbed
+            username="모기모기초"
+            handle="mogimogi098"
+            isVerified={true}
+            content={`사진을 대충 찍긴 했는데
+쥬디님칼레션 있으면 뭔가 되게 귀엽고(저말고요) 있어보여서(?) 애용합니다..
+오시탑말 색 가족팀들 노리는중..`}
+            images={swatches[2].images}
+            timestamp="1:56 PM · Mar 4, 2026"
+            likes={1}
+            userProfile={swatches[2].userProfile.avatar}
+          />
+          
+          {swatches.slice(3).map((swatch) => (
+            <SwatchCard
+              key={swatch.id}
+              images={swatch.images}
+              name={swatch.name}
+              description={swatch.description}
+              userProfile={swatch.userProfile}
+            />
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
