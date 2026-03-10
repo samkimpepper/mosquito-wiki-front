@@ -27,54 +27,54 @@ export function FeedCard({ images, productName, userProfile }: FeedCardProps) {
       </div>
 
       {/* 이미지 영역 */}
-      <div className="bg-white">
+      <div className="bg-white p-2">
         {imageCount === 1 && (
           <img 
             src={images[0]} 
             alt={productName}
-            className="w-full aspect-square object-cover"
+            className="w-full aspect-square object-cover rounded-lg border border-gray-200"
           />
         )}
         
         {imageCount === 2 && (
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-2">
             {images.map((img, idx) => (
               <img 
                 key={idx}
                 src={img} 
                 alt={`${productName} ${idx + 1}`}
-                className="w-full aspect-square object-cover"
+                className="w-full aspect-square object-cover rounded-lg border border-gray-200"
               />
             ))}
           </div>
         )}
         
         {imageCount === 3 && (
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-2">
             <img 
               src={images[0]} 
               alt={`${productName} 1`}
-              className="w-full aspect-square object-cover col-span-2"
+              className="w-full aspect-square object-cover col-span-2 rounded-lg border border-gray-200"
             />
             {images.slice(1).map((img, idx) => (
               <img 
                 key={idx}
                 src={img} 
                 alt={`${productName} ${idx + 2}`}
-                className="w-full aspect-square object-cover"
+                className="w-full aspect-square object-cover rounded-lg border border-gray-200"
               />
             ))}
           </div>
         )}
         
         {imageCount === 4 && (
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-2">
             {images.map((img, idx) => (
               <img 
                 key={idx}
                 src={img} 
                 alt={`${productName} ${idx + 1}`}
-                className="w-full aspect-square object-cover"
+                className="w-full aspect-square object-cover rounded-lg border border-gray-200"
               />
             ))}
           </div>

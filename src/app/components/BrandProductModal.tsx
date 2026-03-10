@@ -1,6 +1,7 @@
 import { X, ChevronDown, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRef } from "react";
+import { useNavigate } from "react-router";
 
 interface BrandProductModalProps {
   isOpen: boolean;
@@ -8,9 +9,17 @@ interface BrandProductModalProps {
 }
 
 export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
+  const navigate = useNavigate();
+  
   const [modalType, setModalType] = useState<"브랜드" | "제품">("브랜드");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [registeredBrandId, setRegisteredBrandId] = useState<string | null>(null);
+  const [registeredProductSlug, setRegisteredProductSlug] = useState<string | null>(null);
 
+  const brandNameInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const swatchInputRef = useRef<HTMLInputElement>(null);
 
@@ -21,25 +30,18 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
   
   // 제품 관련 state
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState<{ id: number; name: string; logo: string } | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<{ slug: string; name: string; logo: string } | null>(null);
   const [showBrandResults, setShowBrandResults] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState<{ id: number; nameKo: string; nameEn: string; brand: string; image: string } | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<{ slug: string; nameKo: string; nameEn: string; image: string } | null>(null);
   const [showProductResults, setShowProductResults] = useState(false);
   const [productNameKo, setProductNameKo] = useState("");
   const [productNameEn, setProductNameEn] = useState("");
   const [colorOptionKo, setColorOptionKo] = useState("");
   const [colorOptionEn, setColorOptionEn] = useState("");
   const [officialSwatchImage, setOfficialSwatchImage] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   
-  // 샘플 브랜드 데이터
-  const sampleBrands = [
-    { id: 1, name: "헤라", logo: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400" },
-    { id: 2, name: "에스쁘아", logo: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400" },
-    { id: 3, name: "롬앤", logo: "https://images.unsplash.com/photo-1631214524220-6b8b04cda6ba?w=400" },
-    { id: 4, name: "클리오", logo: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400" },
-    { id: 5, name: "페리페라", logo: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400" },
-  ];
 
   // 샘플 제품 데이터
   const sampleProducts = [
@@ -49,10 +51,48 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
     { id: 4, nameKo: "프로 싱글 섀도우", nameEn: "Pro Single Shadow", brand: "클리오", image: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400" },
     { id: 5, nameKo: "잉크 더 벨벳", nameEn: "Ink The Velvet", brand: "페리페라", image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400" },
   ];
+
+  const [brandResults, setBrandResults] = useState<{ slug: string; name: string; logo: string }[]>([]);
+
+  useEffect(() => {
+  if (!brandSearchQuery.trim()) {
+    setBrandResults([]);
+    return;
+  }
+
+  const timer = setTimeout(async () => {
+    const res = await fetch(`http://localhost:8080/api/brand/search?keyword=${encodeURIComponent(brandSearchQuery)}`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+    setBrandResults(data);
+  }, 150); // 타이핑 멈추고 300ms 후 요청
+
+  return () => clearTimeout(timer); // 타이핑 중엔 이전 타이머 취소
+}, [brandSearchQuery]);
+
+const [productResults, setProductResults] = useState<{ slug: string; nameKo: string; nameEn: string; image: string }[]>([]);
+
+useEffect(() => {
+  if (!productSearchQuery.trim()) {
+    setProductResults([]);
+    return;
+  }
+
+  const timer = setTimeout(async () => {
+    const res = await fetch(`http://localhost:8080/api/product/search?keyword=${encodeURIComponent(productSearchQuery)}`, {
+      credentials: "include"
+    });
+    const data = await res.json();
+    setProductResults(data);
+  }, 150);
+
+  return () => clearTimeout(timer);
+}, [productSearchQuery]);
   
-  const filteredBrands = sampleBrands.filter(brand =>
+  /*const filteredBrands = sampleBrands.filter(brand =>
     brand.name.toLowerCase().includes(brandSearchQuery.toLowerCase())
-  );
+  );*/
 
   const filteredProducts = sampleProducts.filter(product =>
     product.nameKo.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
@@ -66,12 +106,14 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
     setLogoImage(url);
   };
 
-  const handleSwatchUpload = () => {
-    // 임시로 샘플 이미지 설정
-    setOfficialSwatchImage("https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?w=400");
+  const handleSwatchUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setOfficialSwatchImage(url);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     console.log("등록:", {
       modalType,
       ...(modalType === "브랜드" 
@@ -79,7 +121,92 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
         : { selectedBrand, productNameKo, productNameEn, colorOptionKo, colorOptionEn, officialSwatchImage }
       )
     });
+
+    if (modalType == "브랜드") {
+        const formData = new FormData();
+        formData.append("data", new Blob([JSON.stringify({
+          name: brandNameEn,
+          nameKo: brandNameKo,
+        })], { type: "application/json" }));
+
+        const file = logoInputRef.current?.files?.[0];
+        if (file) formData.append("image", file);
+
+        const res = await fetch("http://localhost:8080/api/brand", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          //
+          setErrorMessage(data.message);
+          setShowFailureModal(true);
+          return;
+        }
+
+        setRegisteredBrandId(data.slug);
+    } else if (modalType == "제품") {
+        const formData = new FormData();
+        console.log(selectedBrand);
+        formData.append("data", new Blob([JSON.stringify({
+          name: productNameEn,
+          nameKo: productNameKo,
+          brandSlug: selectedBrand?.slug,
+          option: colorOptionEn,
+          optionKo: colorOptionKo,
+          description: description
+        })], { type: "application/json" }));
+
+        const file = swatchInputRef.current?.files?.[0];
+        if (file) formData.append("image", file);
+
+        const res = await fetch("http://localhost:8080/api/product", {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          //
+          setErrorMessage(data.message);
+          setShowFailureModal(true);
+          return;
+        }
+
+        setRegisteredProductSlug(data.slug);
+    }
+
+    setShowSuccessModal(true);
+  };
+
+  const handleSuccessConfirm = () => {
+    setShowSuccessModal(false);
     onClose();
+    // 모든 입력 초기화
+    setBrandNameKo("");
+    setBrandNameEn("");
+    setLogoImage(null);
+    setSelectedBrand(null);
+    setSelectedProduct(null);
+    setProductNameKo("");
+    setProductNameEn("");
+    setColorOptionKo("");
+    setColorOptionEn("");
+    setOfficialSwatchImage(null);
+    setRegisteredBrandId(null);
+  };
+
+  const handleGoToBrand = () => {
+    if (registeredBrandId) {
+      navigate(`/brand/${registeredBrandId}`);
+      handleSuccessConfirm();
+    } else if (registeredProductSlug) {
+      navigate(`/product/${registeredProductSlug}`);
+      handleSuccessConfirm();
+    }
   };
 
   if (!isOpen) return null;
@@ -270,7 +397,7 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
                       </div>
                       
                       {/* 검색 결과 드롭다운 */}
-                      {showBrandResults && filteredBrands.length > 0 && (
+                      {showBrandResults && brandResults.length > 0 && (
                         <>
                           {/* 배경 클릭시 닫기 */}
                           <div 
@@ -280,9 +407,9 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
                           
                           {/* 검색 결과 리스트 */}
                           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 max-h-60 overflow-y-auto">
-                            {filteredBrands.map((brand) => (
+                            {brandResults.map((brand) => (
                               <button
-                                key={brand.id}
+                                key={brand.slug}
                                 onClick={() => {
                                   setSelectedBrand(brand);
                                   setBrandSearchQuery("");
@@ -349,6 +476,8 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
                           value={productSearchQuery}
                           onChange={(e) => {
                             setProductSearchQuery(e.target.value);
+                            setProductNameEn(e.target.value);
+                            setProductNameKo(e.target.value);
                             setShowProductResults(true);
                           }}
                           onFocus={() => setShowProductResults(true)}
@@ -358,7 +487,7 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
                       </div>
                       
                       {/* 검색 결과 드롭다운 */}
-                      {showProductResults && filteredProducts.length > 0 && (
+                      {showProductResults && productResults.length > 0 && (
                         <>
                           {/* 배경 클릭시 닫기 */}
                           <div 
@@ -368,9 +497,9 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
                           
                           {/* 검색 결과 리스트 */}
                           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 max-h-60 overflow-y-auto">
-                            {filteredProducts.map((product) => (
+                            {productResults.map((product) => (
                               <button
-                                key={product.id}
+                                key={product.slug}
                                 onClick={() => {
                                   setSelectedProduct(product);
                                   setProductNameKo(product.nameKo);
@@ -465,13 +594,27 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
                   </div>
                 ) : (
                   <button
-                    onClick={handleSwatchUpload}
+                    onClick={() => swatchInputRef.current?.click()}
                     className="w-full aspect-[2/1] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-gray-400 hover:bg-gray-50 transition-colors"
                   >
                     <Plus className="w-8 h-8 text-gray-400" />
                     <span className="text-sm text-gray-500">공홈발색 추가</span>
                   </button>
                 )}
+              </div>
+
+              {/* 제품 설명 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  제품 설명
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="제품에 대한 설명을 입력하세요."
+                  rows={4}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+                />
               </div>
             </>
           )}
@@ -491,6 +634,100 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
           </button>
         </div>
       </div>
+
+      {/* 성공 모달 */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          {/* 배경 오버레이 */}
+          <div className="absolute inset-0 bg-black/50" />
+          
+          {/* 성공 메시지 모달 */}
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 text-center">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg 
+                  className="w-8 h-8 text-green-600" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M5 13l4 4L19 7" 
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                등록 완료
+              </h3>
+              <p className="text-sm text-gray-600">
+                {modalType === "브랜드" ? "브랜드가" : "제품이"} 성공적으로 등록되었습니다.
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handleSuccessConfirm}
+                className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                확인
+              </button>
+              <button
+                onClick={handleGoToBrand}
+                className="flex-1 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                보러가기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFailureModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          {/* 배경 오버레이 */}
+          <div className="absolute inset-0 bg-black/50" />
+          
+          {/* 실패 메시지 모달 */}
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 text-center">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg 
+                  className="w-8 h-8 text-red-600" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M6 18L18 6M6 6l12 12" 
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                등록 실패
+              </h3>
+              <p className="text-sm text-gray-600">
+                {errorMessage}
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowFailureModal(false)}
+                className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { Sidebar } from "./Sidebar";
 import { UploadModal } from "./UploadModal";
 import { BrandProductModal } from "./BrandProductModal";
-import { Search, Menu } from "lucide-react";
+import { Search, Menu, PenSquare, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "../../context/AuthContext";
@@ -71,6 +71,50 @@ export function Layout() {
                     placeholder="검색"
                     className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
                   />
+                </div>
+
+                {/* 등록 버튼 드롭다운 */}
+                <div className="relative">
+                  <button
+                    onClick={() => setRegisterDropdownOpen(!registerDropdownOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                  >
+                    <PenSquare className="w-4 h-4" />
+                    <span>등록</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  
+                  {registerDropdownOpen && (
+                    <>
+                      {/* 배경 클릭시 닫기 */}
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setRegisterDropdownOpen(false)}
+                      />
+                      
+                      {/* 드롭다운 메뉴 */}
+                      <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 min-w-[180px]">
+                        <button
+                          onClick={() => {
+                            setUploadModalOpen(true);
+                            setRegisterDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                        >
+                          발색샷 등록
+                        </button>
+                        <button
+                          onClick={() => {
+                            setBrandProductModalOpen(true);
+                            setRegisterDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          브랜드, 제품 등록
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 {user ? (
