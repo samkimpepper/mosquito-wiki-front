@@ -32,6 +32,9 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState<{ slug: string; name: string; logo: string } | null>(null);
   const [showBrandResults, setShowBrandResults] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<{ slug: string; name: string } | null>(null);
+  const [categories, setCategories] = useState<{ slug: string; name: string; }[]>([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<{ slug: string; nameKo: string; nameEn: string; image: string } | null>(null);
   const [showProductResults, setShowProductResults] = useState(false);
@@ -41,24 +44,24 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
   const [colorOptionEn, setColorOptionEn] = useState("");
   const [officialSwatchImage, setOfficialSwatchImage] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  
 
-  // 샘플 제품 데이터
-  const sampleProducts = [
-    { id: 1, nameKo: "센슈얼 스파이시 누드 글로스", nameEn: "Sensual Spicy Nude Gloss", brand: "헤라", image: "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400" },
-    { id: 2, nameKo: "루즈 홀릭", nameEn: "Rouge Holic", brand: "헤라", image: "https://images.unsplash.com/photo-1631730486784-9b191e821063?w=400" },
-    { id: 3, nameKo: "립큐브", nameEn: "Lip Cube", brand: "롬앤", image: "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400" },
-    { id: 4, nameKo: "프로 싱글 섀도우", nameEn: "Pro Single Shadow", brand: "클리오", image: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400" },
-    { id: 5, nameKo: "잉크 더 벨벳", nameEn: "Ink The Velvet", brand: "페리페라", image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400" },
-  ];
 
   const [brandResults, setBrandResults] = useState<{ slug: string; name: string; logo: string }[]>([]);
+
+useEffect(() => {
+  fetch('http://localhost:8080/api/category', {
+    credentials: "include"
+  })
+    .then(res => res.json())
+    .then((data: { slug: string; name: string; }[]) => setCategories(data));
+}, []);
 
   useEffect(() => {
   if (!brandSearchQuery.trim()) {
     setBrandResults([]);
     return;
   }
+
 
   const timer = setTimeout(async () => {
     const res = await fetch(`http://localhost:8080/api/brand/search?keyword=${encodeURIComponent(brandSearchQuery)}`, {
@@ -93,11 +96,6 @@ useEffect(() => {
   /*const filteredBrands = sampleBrands.filter(brand =>
     brand.name.toLowerCase().includes(brandSearchQuery.toLowerCase())
   );*/
-
-  const filteredProducts = sampleProducts.filter(product =>
-    product.nameKo.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
-    product.nameEn.toLowerCase().includes(productSearchQuery.toLowerCase())
-  );
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -156,6 +154,7 @@ useEffect(() => {
           brandSlug: selectedBrand?.slug,
           option: colorOptionEn,
           optionKo: colorOptionKo,
+          categorySlug: selectedCategory?.slug,
           description: description
         })], { type: "application/json" }));
 
@@ -540,6 +539,53 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 카테고리 선택 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  카테고리
+                </label>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm text-left focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center justify-between"
+                  >
+                    <span className={selectedCategory ? "text-gray-900" : "text-gray-400"}>
+                      {selectedCategory?.name || "카테고리 선택"}
+                    </span>
+                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {/* 카테고리 드롭다운 */}
+                  {showCategoryDropdown && (
+                    <>
+                      {/* 배경 클릭시 닫기 */}
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowCategoryDropdown(false)}
+                      />
+                      
+                      {/* 카테고리 리스트 */}
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 max-h-60 overflow-y-auto">
+                        {categories.map((category) => (
+                          <button
+                            key={category.slug}
+                            onClick={() => {
+                              setSelectedCategory({ slug: category.slug, name: category.name });
+                              setShowCategoryDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-3 text-sm transition-colors border-b border-gray-100 last:border-b-0 ${
+                              selectedCategory?.slug === category.slug ? 'bg-gray-50 font-medium' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* 색상 옵션 (선택사항) */}

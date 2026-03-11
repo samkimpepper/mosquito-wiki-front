@@ -26,6 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then(res => res.ok ? res.json() : null)
         .then(data => {
             setUser(data);
+            if (data && data.profileImageUrl) {
+                data.profileImageUrl = `http://localhost:8080${data.profileImageUrl}`;
+            }
             setLoading(false);
         })
         .catch(() => {

@@ -1,10 +1,25 @@
 import { useParams } from "react-router";
 import { useState, useEffect } from "react";
 
+interface Product {
+  slug: string;
+  name: string;
+  nameKo: string;
+  image: string;
+  swatchCount: number;
+}
+
+interface BrandDetail {
+  slug: string;
+  name: string;
+  nameKo: string;
+  logoUrl: string;
+  products: Product[];
+}
+
 export function BrandDetailPage() {
   const { slug } = useParams();
-  const [brand, setBrand] = useState<{ nameKo: string; name: string; logoUrl: string } | null>(null);
-  const [products, setProducts] = useState([]);
+  const [brand, setBrand] = useState<BrandDetail | null>(null);
 
   useEffect(() => {
     const fetchBrand = async () => {
@@ -44,7 +59,7 @@ export function BrandDetailPage() {
               {brand.name}
             </p>
             <p className="text-sm text-gray-400 mt-2">
-              {products.length}개의 제품
+              {brand.products.length}개의 제품
             </p>
           </div>
         </div>
@@ -55,9 +70,9 @@ export function BrandDetailPage() {
           
           {/* 그리드 레이아웃 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {products.map((product) => (
+            {brand.products.map((product) => (
               <div
-                key={product.id}
+                key={product.slug}
                 className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
               >
                 {/* 제품 이미지 */}
@@ -75,7 +90,7 @@ export function BrandDetailPage() {
                     {product.nameKo}
                   </h3>
                   <p className="text-xs text-gray-500 mb-2 truncate">
-                    {product.nameEn}
+                    {product.name}
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">

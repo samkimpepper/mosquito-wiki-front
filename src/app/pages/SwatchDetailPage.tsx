@@ -1,16 +1,56 @@
 import { SwatchCard } from "../components/SwatchCard";
 import { TwitterEmbed } from "../components/TwitterEmbed";
 import { ArrowLeft, Image, Heart, Bookmark, ArrowUpDown } from "lucide-react";
-import { useState } from "react";
+import { useParams } from "react-router";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 
 export function SwatchDetailPage() {
+  const { slug } = useParams();
+
+  interface Tag {
+    id: number;
+    tagType: string;
+    tagValue: string;
+    color: string | null;
+  }
+
+  interface ProductDetail {
+    slug: string;
+    brandSlug: string;
+    category: string;
+    categorySlug: string;
+    brandName: string;
+    name: string;
+    optionName: string;
+    brandNameKo: string;
+    nameKo: string;
+    optionNameKo: string;
+    description: string;
+    officialImageUrl: string | null;
+    tags: Tag[];
+  }
+  const [product, setProduct] = useState<ProductDetail | null>(null);
   const navigate = useNavigate();
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [sortOption, setSortOption] = useState("인기순 정렬");
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
+
+
+    useEffect(() => {
+      const fetchProduct = async () => {
+        const res = await fetch(`http://localhost:8080/api/product/${slug}`, {
+          credentials: "include"
+        });
+        const data = await res.json();
+        setProduct(data);
+      };
+  
+      fetchProduct();
+    }, [slug]);
+
 
   // 사용 가능한 컬러 태그
   const colorTags = [
@@ -105,7 +145,7 @@ export function SwatchDetailPage() {
       },
     },
   ];
-
+if (!product) return <div>로딩중...</div>;
   return (
     <>
       {/* 헤더 - 제품 메인 정보 */}
@@ -125,26 +165,26 @@ export function SwatchDetailPage() {
             {/* 제품 메인 이미지 */}
             <div className="w-full md:w-1/3">
               <img 
-                src="https://images.unsplash.com/photo-1733045842176-e1bbfd3fe552?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBsaXBzdGljayUyMHByb2R1Y3QlMjB3aGl0ZSUyMGJhY2tncm91bmR8ZW58MXx8fHwxNzcyNTE1ODAyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="벨벳 매트 립스틱" 
+                src={`http://localhost:8080${product?.officialImageUrl ?? ''}`}
+                alt={product?.nameKo}
                 className="w-full rounded-lg"
               />
             </div>
             
             {/* 제품 정보 */}
             <div className="flex-1">
-              <h1 className="text-3xl mb-3">벨벳 매트 립스틱</h1>
+              <h1 className="text-3xl mb-3">{product?.nameKo}</h1>
               <p className="text-xl text-gray-500 mb-6">₩28,000</p>
               
               {/* 컬러 태그들 */}
               <div className="flex flex-wrap gap-2 mb-8">
-                {colorTags.map((tag) => (
+                {product?.tags.map((tag) => (
                   <div 
-                    key={tag.name}
+                    key={tag.tagValue}
                     className="px-3 py-1 rounded text-xs"
-                    style={{ backgroundColor: tag.color, color: '#fff' }}
+                    style={{ backgroundColor: tag.color ?? '#FFF', color: '#fff' }}
                   >
-                    {tag.name}
+                    {tag.tagValue}
                   </div>
                 ))}
               </div>
