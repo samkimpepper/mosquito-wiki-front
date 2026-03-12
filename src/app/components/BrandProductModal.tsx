@@ -46,7 +46,7 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
   const [description, setDescription] = useState("");
 
 
-  const [brandResults, setBrandResults] = useState<{ slug: string; name: string; logo: string }[]>([]);
+  const [brandResults, setBrandResults] = useState<{ slug: string; name: string; nameKo: string; logo: string }[]>([]);
 
 useEffect(() => {
   fetch('http://localhost:8080/api/category', {
@@ -526,19 +526,6 @@ useEffect(() => {
                   )}
                 </div>
                 
-                {/* 한글/영어 제품명 표시 (선택된 경우에만) */}
-                {selectedProduct && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
-                    <div className="px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700">
-                      <span className="text-xs text-gray-500 block mb-1">한글</span>
-                      {productNameKo}
-                    </div>
-                    <div className="px-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700">
-                      <span className="text-xs text-gray-500 block mb-1">영어</span>
-                      {productNameEn}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* 카테고리 선택 */}
@@ -672,7 +659,7 @@ useEffect(() => {
             onClick={handleSubmit}
             disabled={
               (modalType === "브랜드" && (!brandNameKo || !brandNameEn || !logoImage)) ||
-              (modalType === "제품" && (!selectedBrand || !productNameKo || !productNameEn || !officialSwatchImage))
+              (modalType === "제품" && (!selectedBrand || !productNameKo || !officialSwatchImage))
             }
             className="px-6 py-2.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
