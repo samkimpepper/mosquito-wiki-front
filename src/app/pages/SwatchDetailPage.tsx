@@ -1,5 +1,6 @@
 import { SwatchCard } from "../components/SwatchCard";
 import { TwitterEmbed } from "../components/TwitterEmbed";
+import { BrandProductModal } from "../components/BrandProductModal";
 import { ArrowLeft, Image, Heart, Bell, ArrowUpDown, Edit2, X, Plus, Check } from "lucide-react";
 import { useParams } from "react-router";
 import { useState, useEffect } from "react";
@@ -25,6 +26,7 @@ export function SwatchDetailPage() {
     description: string;
     officialImageUrl: string | null;
     isCurrent: boolean;
+    isParent: boolean;
   }
 
   interface ProductDetail {
@@ -61,6 +63,7 @@ export function SwatchDetailPage() {
   const [editedProductImage, setEditedProductImage] = useState<string | null>(null);
   const [editedProductImageFile, setEditedProductImageFile] = useState<File | null>(null);
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
+  const [isAddOptionModalOpen, setIsAddOptionModalOpen] = useState(false);
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
   const randomColors = ["#C9B8A8", "#D4A5B0", "#B87070", "#C8927A", "#9B7585"];
@@ -126,6 +129,8 @@ export function SwatchDetailPage() {
       setEditedProductImageFile(file);
     }
   };
+
+  
 
   // 저장
   const handleSave = async () => {
@@ -286,6 +291,13 @@ export function SwatchDetailPage() {
 if (!product) return <div>로딩중...</div>;
   return (
     <>
+      <BrandProductModal
+          isOpen={isAddOptionModalOpen}
+          onClose={() => setIsAddOptionModalOpen(false)}
+          selectedBrandSlug={product.brandSlug}
+          selectedProductSlug={product.otherOptions.find(p => p.isParent)?.slug}
+      />
+
       {/* 헤더 - 제품 메인 정보 */}
       <div className="border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4">
@@ -340,7 +352,7 @@ if (!product) return <div>로딩중...</div>;
             {/* 제품 정보 */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between mb-3">
-                <h1 className="text-3xl">{product?.nameKo}</h1>
+                <h1 className="text-3xl">{product?.brandNameKo} {product?.nameKo}</h1>
                 {!isEditMode && (
                   <button
                     onClick={handleEditClick}
@@ -351,7 +363,7 @@ if (!product) return <div>로딩중...</div>;
                   </button>
                 )}
               </div>
-              <p className="text-xl text-gray-500 mb-6">₩28,000</p>
+              <h1 className="text-3xl">{product?.optionNameKo}</h1>
               
               {/* 컬러 태그들 */}
               {!isEditMode ? (
@@ -541,6 +553,7 @@ if (!product) return <div>로딩중...</div>;
                 {product.otherOptions.map((option) => (
                   <button
                     key={option.slug}
+                    onClick={() => navigate(`/product/${option.slug}`)}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
                       option.isCurrent 
                         ? 'bg-gray-100 border-2 border-gray-900' 
@@ -550,16 +563,29 @@ if (!product) return <div>로딩중...</div>;
                     <img 
                       src={`http://localhost:8080${option?.officialImageUrl ?? ''}`}
                       alt={option.name} 
-                      className="w-16 h-16 object-cover rounded"
+                      className="w-16 h-16 object-cover rounded flex-shrink-0"
                     />
-                    <div className="flex-1 text-left min-w-0">
+                    <div className="flex-1 text-left min-w-0 pt-0.5">
                       <p className={`text-sm truncate ${option.isCurrent ? 'font-medium' : ''}`}>
                         {option.nameKo}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">가격귀찮아</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{option.optionNameKo}</p>
                     </div>
                   </button>
                 ))}
+
+                {/* 옵션 추가 버튼 */}
+                <button
+                  onClick={() => setIsAddOptionModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
+                >
+                  <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded">
+                    <Plus className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm text-gray-600">옵션 추가</p>
+                  </div>
+                </button>
               </div>
             </div>
           </div>

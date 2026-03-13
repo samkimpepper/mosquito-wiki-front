@@ -6,9 +6,11 @@ import { useNavigate } from "react-router";
 interface BrandProductModalProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedBrandSlug?: string;
+  selectedProductSlug?: string;
 }
 
-export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
+export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selectedProductSlug }: BrandProductModalProps) {
   const navigate = useNavigate();
   
   const [modalType, setModalType] = useState<"브랜드" | "제품">("브랜드");
@@ -48,6 +50,40 @@ export function BrandProductModal({ isOpen, onClose }: BrandProductModalProps) {
 
   const [brandResults, setBrandResults] = useState<{ slug: string; name: string; nameKo: string; logo: string }[]>([]);
 
+
+  useEffect(() => {
+    if (selectedBrandSlug) {
+      const res = fetch(`http://localhost:8080/api/brand/info/${encodeURIComponent(selectedBrandSlug)}`, {
+          credentials: "include"
+      })
+      .then(res => res.json())
+      .then(data => setSelectedBrand({
+        ...data,
+        logo: `http://localhost:8080${data.logoUrl}`
+    }));
+
+
+    }
+
+    if (selectedProductSlug) {
+      console.log(selectedProductSlug);
+        const res = fetch(`http://localhost:8080/api/product/info/${encodeURIComponent(selectedProductSlug)}`, {
+          credentials: "include"
+        })
+        .then(res => res.json())
+        .then(data => setSelectedProduct({
+           ...data,
+            image: `http://localhost:8080${data.image}`
+        }));
+
+        if (selectedProduct) {
+            setProductNameEn(selectedProduct?.nameEn);
+            setProductNameKo(selectedProduct?.nameKo);
+        }
+    }
+  }, []);
+  
+
 useEffect(() => {
   fetch('http://localhost:8080/api/category', {
     credentials: "include"
@@ -68,7 +104,10 @@ useEffect(() => {
       credentials: "include"
     });
     const data = await res.json();
-    setBrandResults(data);
+    setBrandResults(data.map((item: any) => ({
+        ...item,
+        logo: item.logoUrl ? `http://localhost:8080${item.logoUrl}` : null
+    })));
   }, 150); // 타이핑 멈추고 300ms 후 요청
 
   return () => clearTimeout(timer); // 타이핑 중엔 이전 타이머 취소
@@ -87,7 +126,10 @@ useEffect(() => {
       credentials: "include"
     });
     const data = await res.json();
-    setProductResults(data);
+    setProductResults(data.map((item: any) => ({
+        ...item,
+        image: item.image ? `http://localhost:8080${item.image}` : null
+    })));
   }, 150);
 
   return () => clearTimeout(timer);
@@ -152,6 +194,7 @@ useEffect(() => {
           name: productNameEn,
           nameKo: productNameKo,
           brandSlug: selectedBrand?.slug,
+          parentProductSlug: selectedProduct?.slug,
           option: colorOptionEn,
           optionKo: colorOptionKo,
           categorySlug: selectedCategory?.slug,
@@ -417,7 +460,7 @@ useEffect(() => {
                                 className="w-full text-left px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
                                 <img 
-                                  src={brand.logo} 
+                                  src={`http://localhost:8080${brand.logo}`}
                                   alt={brand.name}
                                   className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
                                 />
@@ -445,7 +488,7 @@ useEffect(() => {
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <img 
-                          src={selectedProduct.image} 
+                          src={`http://localhost:8080${selectedProduct.image}`}
                           alt={selectedProduct.nameKo}
                           className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
                         />
@@ -509,7 +552,7 @@ useEffect(() => {
                                 className="w-full text-left px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
                                 <img 
-                                  src={product.image} 
+                                  src={`http://localhost:8080${product.image}`}
                                   alt={product.nameKo}
                                   className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
                                 />
