@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then(data => {
             setUser(data);
             if (data && data.profileImageUrl) {
-                data.profileImageUrl = `http://localhost:8080${data.profileImageUrl}`;
+                data.profileImageUrl =data.profileImageUrl;
             }
             setLoading(false);
         })

@@ -1,10 +1,12 @@
 import { SwatchCard } from "../components/SwatchCard";
 import { TwitterEmbed } from "../components/TwitterEmbed";
 import { BrandProductModal } from "../components/BrandProductModal";
+import { ImageUploader } from "../components/ImageUploader";
 import { ArrowLeft, Image, Heart, Bell, ArrowUpDown, Edit2, X, Plus, Check } from "lucide-react";
 import { useParams } from "react-router";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import defaultProfile from "../../assets/default_profile.jpg";
 
 export function SwatchDetailPage() {
   const { slug } = useParams();
@@ -43,6 +45,11 @@ export function SwatchDetailPage() {
     optionNameKo: string;
     description: string;
     officialImageUrl: string | null;
+    officialImageUrl2: string | null;
+    officialImageUrl3: string | null;
+    officialImageUrl4: string | null;
+    liked: boolean;
+    likeCount: number;
     tags: Tag[];
     otherOptions: OtherOptionProduct[];
   }
@@ -50,7 +57,6 @@ export function SwatchDetailPage() {
   const navigate = useNavigate();
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(1200);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [sortOption, setSortOption] = useState("인기순 정렬");
   const [isEditMode, setIsEditMode] = useState(false);
@@ -64,6 +70,14 @@ export function SwatchDetailPage() {
   const [editedProductImageFile, setEditedProductImageFile] = useState<File | null>(null);
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
   const [isAddOptionModalOpen, setIsAddOptionModalOpen] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+  const [editedCategory, setEditedCategory] = useState("");
+  const [editedProductImages, setEditedProductImages] = useState<Array<{ id: string; file: File | null; existingUrl: string | null }>>([]);
+  const [editedProductName, setEditedProductName] = useState("");
+  const [editedOptionName, setEditedOptionName] = useState("");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [categories, setCategories] = useState<{ slug: string; name: string; }[]>([]);
+  
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
   const randomColors = ["#C9B8A8", "#D4A5B0", "#B87070", "#C8927A", "#9B7585"];
@@ -76,6 +90,7 @@ export function SwatchDetailPage() {
         });
         const data = await res.json();
         setProduct(data);
+        setIsLiked(data.liked);
       };
   
       fetchProduct();
@@ -86,7 +101,22 @@ export function SwatchDetailPage() {
     if (!product) return;
     setIsEditMode(true);
     setEditedTags([...product?.tags]);
-    setEditedProductImage(null);
+    setEditedProductName(product?.nameKo ?? "");
+    setEditedOptionName(product?.optionNameKo ?? "");
+    setEditedProductImages(
+      productImages.map((url, i) => ({
+        id: `existing-${i}`,
+        file: null,
+        existingUrl: url,
+      }))
+    );
+    useEffect(() => {
+      fetch('http://localhost:8080/api/category', {
+        credentials: "include"
+      })
+        .then(res => res.json())
+        .then((data: { slug: string; name: string; }[]) => setCategories(data));
+    }, []);
   };
 
   // 수정 취소
@@ -121,16 +151,25 @@ export function SwatchDetailPage() {
   };
 
   // 이미지 업로드 핸들러
-  const handleProductImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProductImageUpload = (index: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const imageUrl = URL.createObjectURL(file);
+      const newEditedImages = [...editedProductImages];
+      newEditedImages[index] = { id: `image-${index}`, file, existingUrl: imageUrl };
+      setEditedProductImages(newEditedImages);
       setEditedProductImage(imageUrl);
       setEditedProductImageFile(file);
     }
   };
 
-  
+  // 이미지 삭제 핸들러
+  const handleDeleteProductImage = (index: number) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newEditedImages = [...editedProductImages];
+    newEditedImages[index] = { id: `image-${index}`, file: null, existingUrl: 'DELETED' };
+    setEditedProductImages(newEditedImages);
+  };
 
   // 저장
   const handleSave = async () => {
@@ -140,21 +179,42 @@ export function SwatchDetailPage() {
     try {
       const formData = new FormData();
 
+      const imageUrl1 = editedProductImages[0]
+        ? (editedProductImages[0].file ? "NEW_0" : editedProductImages[0].existingUrl)
+        : null;
+      const imageUrl2 = editedProductImages[1]
+        ? (editedProductImages[1].file ? "NEW_1" : editedProductImages[1].existingUrl)
+        : null;
+      const imageUrl3 = editedProductImages[2]
+        ? (editedProductImages[2].file ? "NEW_2" : editedProductImages[2].existingUrl)
+        : null;
+      const imageUrl4 = editedProductImages[3]
+        ? (editedProductImages[3].file ? "NEW_3" : editedProductImages[3].existingUrl)
+        : null;
+
       formData.append("data", new Blob([JSON.stringify({
         name: product?.name,
           nameKo: product?.nameKo,
           option: product?.optionName,
           optionKo: product?.optionNameKo,
           description: product?.description,
+          imageUrl1,
+          imageUrl2,
+          imageUrl3,
+          imageUrl4,
           addTags: editedTags.filter(t => !product?.tags.some(pt => pt.id === t.id)),
           removeTags: product?.tags
             .filter(pt => !editedTags.some(t => t.id === pt.id))
             .map(t => t.id)
       })], { type: "application/json" }));
 
-      if (editedProductImageFile) {
-        formData.append("image", editedProductImageFile);
-      }
+      let newIndex = 0;
+      editedProductImages.forEach((item) => {
+        if (item.file) {
+          formData.append("newImages", item.file);
+          newIndex++;
+        }
+      });
 
       console.log(slug);
 
@@ -167,6 +227,7 @@ export function SwatchDetailPage() {
         if (res.ok) {
           setShowSaveSuccessModal(true);
           setProduct(data);
+          
         }
         
     } catch (e) {
@@ -182,27 +243,23 @@ export function SwatchDetailPage() {
 
   // 좋아요 토글
   const handleLikeToggle = async () => {
-    const newLikedState = !isLiked;
-    const newLikeCount = newLikedState ? likeCount + 1 : likeCount - 1;
-    
-    // 즉시 UI 업데이트
-    setIsLiked(newLikedState);
-    setLikeCount(newLikeCount);
-    
-    // 서버에 요청 (실제로는 API 호출)
-    console.log("서버에 좋아요 상태 전송:", { liked: newLikedState, count: newLikeCount });
-    
-    // 시뮬레이션: 서버 응답 대기
+    if (isLiking) return;  // 처리 중이면 무시
+    setIsLiking(true);
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      console.log("좋아요 저장 완료");
-    } catch (error) {
-      // 에러 발생 시 원래 상태로 롤백
-      console.error("좋아요 저장 실패:", error);
-      setIsLiked(!newLikedState);
-      setLikeCount(likeCount);
+        const res = await fetch(`http://localhost:8080/api/product/like/${slug}`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        const data = await res.json();
+        setIsLiked(data.liked);
+        setProduct(prev => prev ? { ...prev, likeCount: data.likeCount } : null);//
+    } finally {
+        setIsLiking(false);
     }
   };
+
+  
 
   // 뷰티 제품의 스와치 데이터
   const swatches = [
@@ -289,6 +346,12 @@ export function SwatchDetailPage() {
     },
   ];
 if (!product) return <div>로딩중...</div>;
+const productImages = [
+  product?.officialImageUrl,
+  product?.officialImageUrl2,
+  product?.officialImageUrl3,
+  product?.officialImageUrl4,
+].filter(Boolean).map(url => `http://localhost:8080${url}`) as string[];
   return (
     <>
       <BrandProductModal
@@ -298,62 +361,203 @@ if (!product) return <div>로딩중...</div>;
           selectedProductSlug={product.otherOptions.find(p => p.isParent)?.slug}
       />
 
+      {/* 스크롤바 커스텀 스타일 */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #D1D5DB;
+          border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #9CA3AF;
+        }
+      `}</style>
+
       {/* 헤더 - 제품 메인 정보 */}
       <div className="border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4">
           {/* 뒤로가기 버튼 */}
-          <div className="py-4">
+          <div className="py-4 flex items-center">
             <button 
               onClick={() => navigate('/')}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-8 items-start pb-12">
-            {/* 제품 메인 이미지 */}
-            <div className="w-full md:w-1/4 relative">
+            
+            {/* 카테고리 표시 */}
+            <div className="ml-[52px]">
               {isEditMode ? (
-                <>
-                  <div 
-                    onClick={() => document.getElementById('productImageUpload')?.click()}
-                    className="relative cursor-pointer group"
-                  >
-                    <img 
-                      src={editedProductImage || `http://localhost:8080${product?.officialImageUrl}`}
-                      alt={product?.nameKo}
-                      className="w-full rounded-lg"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all rounded-lg flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-center">
-                        <Edit2 className="w-8 h-8 mx-auto mb-2" />
-                        <p className="text-sm">사진 변경</p>
-                      </div>
-                    </div>
-                  </div>
-                  <input
-                    type="file"
-                    id="productImageUpload"
-                    accept="image/*"
-                    onChange={handleProductImageUpload}
-                    className="hidden"
-                  />
-                </>
+                <select
+                  value={editedCategory}
+                  onChange={(e) => setEditedCategory(e.target.value)}
+                  className="px-3 py-1.5 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                >
+                  {categories.map((option) => (
+                    <option key={option.slug} value={option.slug}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
               ) : (
-                <img 
-                  src={`http://localhost:8080${product?.officialImageUrl}`}
-                  alt={product?.nameKo}
-                  className="w-full rounded-lg"
-                />
+                <button className="text-sm text-gray-600 hover:text-gray-900 transition-colors cursor-pointer">
+                  {product.category}
+                </button>
               )}
             </div>
-            
-            {/* 제품 정보 */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between mb-3">
-                <h1 className="text-3xl">{product?.brandNameKo} {product?.nameKo}</h1>
-                {!isEditMode && (
+          </div>
+
+          {/* 이미지 갤러리 + 다른 옵션 보기 */}
+          <div className="flex gap-6 pb-8">
+            {/* 제품 메인 이미지 갤러리 */}
+            <div className="flex-1 flex gap-3">
+              {/* 썸네일 이미지들 (왼쪽 세로 배치) */}
+              {!isEditMode && (
+                <div className="flex flex-col gap-2">
+                  {productImages.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                        selectedImageIndex === index 
+                          ? 'border-gray-900' 
+                          : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      <img 
+                        src={image} 
+                        alt={`제품 이미지 ${index + 1}`} 
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* 메인 이미지 */}
+              <div className="flex-1 max-w-2xl flex items-center justify-center">
+                {isEditMode ? (
+                  <div className="ml-[76px]">
+                    <ImageUploader
+                      initialImages={productImages.map((url, i) => ({ id: `existing-${i}`, url }))}
+                      onChange={(items) => {
+                        setEditedProductImages(items);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-[400px] bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden w-full">
+                    <img 
+                      src={productImages[selectedImageIndex]}
+                      alt="" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 이 제품의 다른 옵션들 */}
+            <div className="hidden lg:block w-64 flex-shrink-0">
+              <h3 className="text-sm text-gray-500 mb-4">이 제품의 다른 옵션 보기</h3>
+              
+              {/* 스크롤 가능한 옵션 리스트 - 최대 3개까지만 보임 */}
+              <div className="max-h-[280px] overflow-y-auto space-y-3 mb-6 pr-3 custom-scrollbar">
+                {product.otherOptions.map((option) => (
+                  <button
+                    key={option.slug}
+                    className={`w-full flex items-start gap-3 p-4 rounded-lg transition-all ${
+                      option.isCurrent 
+                        ? 'bg-gray-100 border-2 border-gray-900' 
+                        : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                    }`}
+                  >
+                    <img 
+                      src={option?.officialImageUrl ? `http://localhost:8080${option.officialImageUrl}` : defaultProfile}
+                      alt={option.nameKo} 
+                      className="w-16 h-16 object-cover rounded flex-shrink-0"
+                    />
+                    <div className="flex-1 text-left min-w-0 pt-0.5">
+                      <p className={`text-sm truncate ${option.isCurrent ? 'font-medium' : ''}`}>
+                        {option.nameKo}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                        {option.optionNameKo}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              {/* 옵션 추가 버튼 - 스크롤 영역 밖에 고정 */}
+              <button
+                onClick={() => setIsAddOptionModalOpen(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all text-sm text-gray-700"
+              >
+                <Plus className="w-4 h-4" />
+                <span>옵션 추가</span>
+              </button>
+            </div>
+          </div>
+          
+          {/* 제품 정보 섹션 */}
+          <div className="pb-12">
+            <div className="max-w-2xl ml-[76px]">
+              {/* 제품명 및 수정 버튼 */}
+              {isEditMode ? (
+                <div className="flex-1 mr-2 mb-3">
+                  <div className="space-y-2 mb-6">
+                    <label className="text-sm font-medium text-gray-700 block">
+                      제품명
+                    </label>
+                    <textarea
+                      value={editedProductName}
+                      onChange={(e) => setEditedProductName(e.target.value)}
+                      placeholder="제품명을 입력하세요"
+                      rows={1}
+                      className="w-1/2 px-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none overflow-hidden"
+                      style={{ minHeight: '48px' }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
+                    <p className="text-xs text-gray-400">이 제품의 같은 라인에 모두 반영됩니다.</p>
+                  </div>
+                  <div className="flex flex-col space-y-2 mb-8">
+                    <label className="text-sm font-medium text-gray-700 block">
+                      옵션명
+                    </label>
+                    <textarea
+                      value={editedOptionName}
+                      onChange={(e) => setEditedOptionName(e.target.value)}
+                      placeholder="옵션명을 입력하세요"
+                      rows={1}
+                      className="w-1/2 px-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none overflow-hidden"
+                      style={{ minHeight: '48px' }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = target.scrollHeight + 'px';
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between mb-3 -ml-[76px]">
+                  <div className="ml-[76px]">
+                    <h1 className="text-3xl">{product.nameKo}</h1>
+                    <h3 className="text-3xl mt-3">{product.optionNameKo}</h3>
+                  </div>
                   <button
                     onClick={handleEditClick}
                     className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -361,9 +565,8 @@ if (!product) return <div>로딩중...</div>;
                     <Edit2 className="w-5 h-5 text-gray-600" />
                     <span className="text-sm text-gray-600">수정</span>
                   </button>
-                )}
-              </div>
-              <h1 className="text-3xl">{product?.optionNameKo}</h1>
+                </div>
+              )}
               
               {/* 컬러 태그들 */}
               {!isEditMode ? (
@@ -489,25 +692,27 @@ if (!product) return <div>로딩중...</div>;
                   <span className="text-sm">142</span>
                 </div>
                 
-                <button
-                  onClick={handleLikeToggle}
-                  className={`transition-colors ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}`}
-                >
-                  <Heart 
-                    className="w-5 h-5" 
-                    fill={isLiked ? "currentColor" : "none"}
-                  />
-                </button>
-                <span className="text-sm text-gray-400">{likeCount.toLocaleString()}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleLikeToggle}
+                    className={`transition-colors ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    <Heart 
+                      className="w-5 h-5" 
+                      fill={isLiked ? "currentColor" : "none"}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-400">{product.likeCount.toLocaleString()}</span>
+                </div>
                 
                 <div 
-                  className="relative"
+                  className="relative flex items-center"
                   onMouseEnter={() => setShowNotificationTooltip(true)}
                   onMouseLeave={() => setShowNotificationTooltip(false)}
                 >
                   <button 
                     onClick={() => setIsBookmarked(!isBookmarked)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    className={`transition-colors ${isBookmarked ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600'}`}
                   >
                     <Bell 
                       className="w-5 h-5" 
@@ -518,7 +723,7 @@ if (!product) return <div>로딩중...</div>;
                   {/* 툴팁 */}
                   {showNotificationTooltip && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap shadow-lg">
-                      제품 할인 알림을 받을 수 있습니다
+                      제품 할인 알림을 을 수 있습니다
                       {/* 화살표 */}
                       <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
                         <div className="border-4 border-transparent border-t-gray-900"></div>
@@ -530,7 +735,6 @@ if (!product) return <div>로딩중...</div>;
               
               {/* 브랜드 정보 */}
               <button 
-                key={product.brandSlug}
                 onClick={() => navigate('/brand')}
                 className="flex items-center gap-3 hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors"
               >
@@ -540,53 +744,10 @@ if (!product) return <div>로딩중...</div>;
                   className="w-10 h-10 object-cover rounded-lg"
                 />
                 <div className="text-left">
-                  <p className="text-base font-medium text-gray-900">{product.brandNameKo}</p>
-                  <p className="text-xs text-gray-500">{product.brandName}</p>
+                  <p className="text-base font-medium text-gray-900">나스</p>
+                  <p className="text-xs text-gray-500">NARS</p>
                 </div>
               </button>
-            </div>
-
-            {/* 이 제품의 다른 옵션들 */}
-            <div className="hidden lg:block w-64">
-              <h3 className="text-sm text-gray-500 mb-4">이 제품의 다른 옵션 보기</h3>
-              <div className="space-y-3">
-                {product.otherOptions.map((option) => (
-                  <button
-                    key={option.slug}
-                    onClick={() => navigate(`/product/${option.slug}`)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                      option.isCurrent 
-                        ? 'bg-gray-100 border-2 border-gray-900' 
-                        : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                    }`}
-                  >
-                    <img 
-                      src={`http://localhost:8080${option?.officialImageUrl ?? ''}`}
-                      alt={option.name} 
-                      className="w-16 h-16 object-cover rounded flex-shrink-0"
-                    />
-                    <div className="flex-1 text-left min-w-0 pt-0.5">
-                      <p className={`text-sm truncate ${option.isCurrent ? 'font-medium' : ''}`}>
-                        {option.nameKo}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{option.optionNameKo}</p>
-                    </div>
-                  </button>
-                ))}
-
-                {/* 옵션 추가 버튼 */}
-                <button
-                  onClick={() => setIsAddOptionModalOpen(true)}
-                  className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
-                >
-                  <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded">
-                    <Plus className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm text-gray-600">옵션 추가</p>
-                  </div>
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -663,6 +824,7 @@ if (!product) return <div>로딩중...</div>;
         </div>
       </div>
 
+      {/* 저장 성공 모달 */}
       {showSaveSuccessModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           {/* 배경 오버레이 */}
@@ -703,6 +865,12 @@ if (!product) return <div>로딩중...</div>;
           </div>
         </div>
       )}
+
+      {/* 옵션 추가 모달 */}
+      <BrandProductModal 
+        isOpen={isAddOptionModalOpen}
+        onClose={() => setIsAddOptionModalOpen(false)}
+      />
     </>
   );
 }

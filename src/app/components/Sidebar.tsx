@@ -48,7 +48,7 @@ export function Sidebar({ userProfile, isOpen = true, onClose }: SidebarProps) {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <img 
-              src={userProfile.avatar} 
+              src={userProfile.avatar}
               alt={userProfile.username}
               className="w-8 h-8 rounded-full object-cover"
             />
