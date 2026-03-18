@@ -2,6 +2,7 @@ import { X, ChevronDown, Plus, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRef } from "react";
 import { useNavigate } from "react-router";
+import defaultProfile from "../../assets/default_profile.jpg";
 
 interface BrandProductModalProps {
   isOpen: boolean;
@@ -106,7 +107,7 @@ useEffect(() => {
     const data = await res.json();
     setBrandResults(data.map((item: any) => ({
         ...item,
-        logo: item.logoUrl ? `http://localhost:8080${item.logoUrl}` : null
+        logo: item.logoUrl ? `http://localhost:8080${item.logoUrl}` : defaultProfile
     })));
   }, 150); // 타이핑 멈추고 300ms 후 요청
 
@@ -128,7 +129,7 @@ useEffect(() => {
     const data = await res.json();
     setProductResults(data.map((item: any) => ({
         ...item,
-        image: item.image ? `http://localhost:8080${item.image}` : null
+        image: item.image ? `http://localhost:8080${item.image}` : defaultProfile,
     })));
   }, 150);
 
@@ -460,12 +461,13 @@ useEffect(() => {
                                 className="w-full text-left px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
                                 <img 
-                                  src={`http://localhost:8080${brand.logo}`}
+                                  src={brand.logo}
                                   alt={brand.name}
                                   className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{brand.name}</p>
+                                  <p className="text-sm font-medium text-gray-900 truncate">{brand.nameKo}</p>
+                                  <p className="text-xs text-gray-500 truncate">{brand.name}</p>
                                 </div>
                               </button>
                             ))}
@@ -552,7 +554,7 @@ useEffect(() => {
                                 className="w-full text-left px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
                                 <img 
-                                  src={`http://localhost:8080${product.image}`}
+                                  src={product.image}
                                   alt={product.nameKo}
                                   className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
                                 />

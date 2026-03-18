@@ -2,7 +2,7 @@ import { SwatchCard } from "../components/SwatchCard";
 import { TwitterEmbed } from "../components/TwitterEmbed";
 import { BrandProductModal } from "../components/BrandProductModal";
 import { ImageUploader } from "../components/ImageUploader";
-import { ArrowLeft, Image, Heart, Bell, ArrowUpDown, Edit2, X, Plus, Check } from "lucide-react";
+import { ArrowLeft, Image, Heart, Bell, ArrowUpDown, Edit2, X, Plus, Check, ChevronRight, Copy } from "lucide-react";
 import { useParams } from "react-router";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -44,10 +44,7 @@ export function SwatchDetailPage() {
     nameKo: string;
     optionNameKo: string;
     description: string;
-    officialImageUrl: string | null;
-    officialImageUrl2: string | null;
-    officialImageUrl3: string | null;
-    officialImageUrl4: string | null;
+    officialImageUrls: string[];
     liked: boolean;
     likeCount: number;
     tags: Tag[];
@@ -72,11 +69,14 @@ export function SwatchDetailPage() {
   const [isAddOptionModalOpen, setIsAddOptionModalOpen] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [editedCategory, setEditedCategory] = useState("");
-  const [editedProductImages, setEditedProductImages] = useState<Array<{ id: string; file: File | null; existingUrl: string | null }>>([]);
+  type ImageItem = { id: string; file: File | null; existingUrl: string | null } | null;
+  const [editedProductImages, setEditedProductImages] = useState<(ImageItem | null)[]>([]);
   const [editedProductName, setEditedProductName] = useState("");
   const [editedOptionName, setEditedOptionName] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [categories, setCategories] = useState<{ slug: string; name: string; }[]>([]);
+  const [showCopyToast, setShowCopyToast] = useState(false);
+  const [copiedText, setCopiedText] = useState("");
   
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
@@ -96,6 +96,14 @@ export function SwatchDetailPage() {
       fetchProduct();
     }, [slug]);
 
+    useEffect(() => {
+      fetch('http://localhost:8080/api/category', {
+        credentials: "include"
+      })
+        .then(res => res.json())
+        .then((data: { slug: string; name: string; }[]) => setCategories(data));
+    }, []);
+
   // 수정 모드 진입
   const handleEditClick = () => {
     if (!product) return;
@@ -110,13 +118,7 @@ export function SwatchDetailPage() {
         existingUrl: url,
       }))
     );
-    useEffect(() => {
-      fetch('http://localhost:8080/api/category', {
-        credentials: "include"
-      })
-        .then(res => res.json())
-        .then((data: { slug: string; name: string; }[]) => setCategories(data));
-    }, []);
+    
   };
 
   // 수정 취소
@@ -150,6 +152,28 @@ export function SwatchDetailPage() {
     }
   };
 
+  // 텍스트 복사 핸들러
+  const handleCopyText = (text: string) => {
+    // Fallback 복사 방법 (클립보드 API가 차단된 경우)
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    
+    try {
+      document.execCommand('copy');
+      setCopiedText(text);
+      setShowCopyToast(true);
+      setTimeout(() => setShowCopyToast(false), 2000);
+    } catch (err) {
+      console.error('복사 실패:', err);
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  };
+
   // 이미지 업로드 핸들러
   const handleProductImageUpload = (index: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -179,18 +203,18 @@ export function SwatchDetailPage() {
     try {
       const formData = new FormData();
 
-      const imageUrl1 = editedProductImages[0]
-        ? (editedProductImages[0].file ? "NEW_0" : editedProductImages[0].existingUrl)
-        : null;
-      const imageUrl2 = editedProductImages[1]
-        ? (editedProductImages[1].file ? "NEW_1" : editedProductImages[1].existingUrl)
-        : null;
-      const imageUrl3 = editedProductImages[2]
-        ? (editedProductImages[2].file ? "NEW_2" : editedProductImages[2].existingUrl)
-        : null;
-      const imageUrl4 = editedProductImages[3]
-        ? (editedProductImages[3].file ? "NEW_3" : editedProductImages[3].existingUrl)
-        : null;
+      let newFileIndex = 0;
+      const slots: string[] = [];
+
+      for (const item of editedProductImages) {
+        if (!item) continue;
+        if (item.id.startsWith("existing")) {
+          slots.push(item.existingUrl.replace("http://localhost:8080", ""));
+        } else {
+          slots.push(`NEW_${newFileIndex++}`);
+          if (item.file) formData.append("newImages", item.file);
+        }
+      }
 
       formData.append("data", new Blob([JSON.stringify({
         name: product?.name,
@@ -198,25 +222,15 @@ export function SwatchDetailPage() {
           option: product?.optionName,
           optionKo: product?.optionNameKo,
           description: product?.description,
-          imageUrl1,
-          imageUrl2,
-          imageUrl3,
-          imageUrl4,
+          imageSlots: slots,
           addTags: editedTags.filter(t => !product?.tags.some(pt => pt.id === t.id)),
           removeTags: product?.tags
             .filter(pt => !editedTags.some(t => t.id === pt.id))
             .map(t => t.id)
       })], { type: "application/json" }));
 
-      let newIndex = 0;
-      editedProductImages.forEach((item) => {
-        if (item.file) {
-          formData.append("newImages", item.file);
-          newIndex++;
-        }
-      });
 
-      console.log(slug);
+      console.log(formData);
 
       const res = await fetch(`http://localhost:8080/api/product/${slug}`, {
           method: "PUT",
@@ -346,12 +360,8 @@ export function SwatchDetailPage() {
     },
   ];
 if (!product) return <div>로딩중...</div>;
-const productImages = [
-  product?.officialImageUrl,
-  product?.officialImageUrl2,
-  product?.officialImageUrl3,
-  product?.officialImageUrl4,
-].filter(Boolean).map(url => `http://localhost:8080${url}`) as string[];
+const productImages = product.officialImageUrls;
+//const productImages = product.officialImageUrls.filter(Boolean).map(url => `http://localhost:8080${url}`) as string[];
   return (
     <>
       <BrandProductModal
@@ -433,7 +443,7 @@ const productImages = [
                       }`}
                     >
                       <img 
-                        src={image} 
+                        src={`http://localhost:8080${image}`}
                         alt={`제품 이미지 ${index + 1}`} 
                         className="w-full h-full object-cover"
                       />
@@ -447,7 +457,7 @@ const productImages = [
                 {isEditMode ? (
                   <div className="ml-[76px]">
                     <ImageUploader
-                      initialImages={productImages.map((url, i) => ({ id: `existing-${i}`, url }))}
+                      initialImages={productImages.map((url, i) => ({ id: `existing-${i}`, url: 'http://localhost:8080' + url }))}
                       onChange={(items) => {
                         setEditedProductImages(items);
                       }}
@@ -456,7 +466,7 @@ const productImages = [
                 ) : (
                   <div className="h-[400px] bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden w-full">
                     <img 
-                      src={productImages[selectedImageIndex]}
+                      src={`http://localhost:8080${productImages[selectedImageIndex]}`}
                       alt="" 
                       className="w-full h-full object-cover"
                     />
@@ -556,15 +566,29 @@ const productImages = [
                 <div className="flex items-start justify-between mb-3 -ml-[76px]">
                   <div className="ml-[76px]">
                     <h1 className="text-3xl">{product.nameKo}</h1>
-                    <h3 className="text-3xl mt-3">{product.optionNameKo}</h3>
+                    <div className="flex items-center gap-2 mt-3">
+                      <ChevronRight className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                      <p className="text-3xl">
+                        {product.optionNameKo}
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleEditClick}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-5 h-5 text-gray-600" />
-                    <span className="text-sm text-gray-600">수정</span>
-                  </button>
+                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleCopyText(`${product.nameKo} ${product.optionNameKo}`)}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      title="제품명과 옵션명 복사"
+                    >
+                      <Copy className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={handleEditClick}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm text-gray-600">수정</span>
+                    </button>
+                  </div>
                 </div>
               )}
               
@@ -871,6 +895,16 @@ const productImages = [
         isOpen={isAddOptionModalOpen}
         onClose={() => setIsAddOptionModalOpen(false)}
       />
+
+      {/* 복사 완료 토스트 */}
+      {showCopyToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[70] animate-fade-in-up">
+          <div className="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+            <Check className="w-5 h-5 text-green-400" />
+            <span className="text-sm font-medium">{copiedText} 복사되었습니다</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }
