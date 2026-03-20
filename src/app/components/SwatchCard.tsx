@@ -11,18 +11,17 @@ interface SwatchCardProps {
 
 export function SwatchCard({ images, name, description, userProfile }: SwatchCardProps) {
   return (
-    <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+    <div className="bg-white rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 transition-colors">
       {/* 사용자 프로필 헤더 */}
-      <div className="p-3 flex items-center gap-2">
-        <img 
-          src={userProfile.avatar} 
+      <div className="px-3 py-2.5 flex items-center gap-2 border-b border-gray-100">
+        <img
+          src={userProfile.avatar}
           alt={userProfile.username}
-          className="w-8 h-8 rounded-full object-cover"
+          className="w-5 h-5 rounded-full object-cover"
         />
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{userProfile.username}</span>
-          <span className="text-xs text-gray-400">{userProfile.date}</span>
-        </div>
+        <span className="text-xs font-medium text-gray-800">{userProfile.username}</span>
+        <span className="text-xs text-gray-200">|</span>
+        <span className="text-xs text-gray-400">{userProfile.date}</span>
       </div>
 
       {/* 이미지 그리드 - 고정된 크기 */}
@@ -83,9 +82,9 @@ export function SwatchCard({ images, name, description, userProfile }: SwatchCar
       </div>
       
       {/* 텍스트 정보 - 항상 아래 */}
-      <div className="p-4">
-        <h3 className="font-medium text-gray-900 mb-1">{name}</h3>
-        <p className="text-sm text-gray-600 line-clamp-2">{description}</p>
+      <div className="px-3 py-2.5 border-t border-gray-100">
+        <h3 className="text-xs font-medium text-gray-800 mb-1">{name}</h3>
+        <p className="text-xs text-gray-400 line-clamp-2">{description}</p>
       </div>
     </div>
   );

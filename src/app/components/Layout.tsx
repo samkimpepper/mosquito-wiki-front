@@ -44,32 +44,32 @@ export function Layout() {
       />
 
       {/* 메인 컨텐츠 */}
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1 lg:ml-72">
         {/* 헤더 */}
-        <div className="border-b border-gray-100">
+        <div className="border-b border-gray-200 bg-white">
           <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between py-4">
+            <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">
                 {/* 모바일 햄버거 메뉴 */}
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="lg:hidden p-2 hover:bg-gray-50 rounded-lg transition-colors"
                 >
-                  <Menu className="w-6 h-6 text-gray-700" />
+                  <Menu className="w-5 h-5 text-gray-600" />
                 </button>
-                
+
                 {showLogo && (
-                  <h1 className="text-lg font-medium text-gray-700">모기위키</h1>
+                  <h1 className="text-sm font-semibold tracking-widest text-gray-800 uppercase">모기위키</h1>
                 )}
               </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="relative w-80 hidden sm:block">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+
+              <div className="flex items-center gap-3">
+                <div className="relative w-72 hidden sm:block">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     placeholder="검색"
-                    className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
                   />
                 </div>
 
@@ -77,29 +77,26 @@ export function Layout() {
                 <div className="relative">
                   <button
                     onClick={() => setRegisterDropdownOpen(!registerDropdownOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     <PenSquare className="w-4 h-4" />
                     <span>등록</span>
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
                   </button>
-                  
+
                   {registerDropdownOpen && (
                     <>
-                      {/* 배경 클릭시 닫기 */}
-                      <div 
-                        className="fixed inset-0 z-10" 
+                      <div
+                        className="fixed inset-0 z-10"
                         onClick={() => setRegisterDropdownOpen(false)}
                       />
-                      
-                      {/* 드롭다운 메뉴 */}
-                      <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 min-w-[180px]">
+                      <div className="absolute top-full right-0 mt-1.5 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden z-20 min-w-[160px]">
                         <button
                           onClick={() => {
                             setUploadModalOpen(true);
                             setRegisterDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
                         >
                           발색샷 등록
                         </button>
@@ -108,7 +105,7 @@ export function Layout() {
                             setBrandProductModalOpen(true);
                             setRegisterDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
                           브랜드, 제품 등록
                         </button>
@@ -116,18 +113,18 @@ export function Layout() {
                     </>
                   )}
                 </div>
-                
+
                 {user ? (
                   <button
                     onClick={logout}
-                    className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                    className="px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
                   >
                     로그아웃
                   </button>
                 ) : (
                   <button
                     onClick={() => navigate('/login')}
-                    className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                    className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
                   >
                     로그인
                   </button>

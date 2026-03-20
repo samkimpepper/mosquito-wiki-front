@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRef } from "react";
 import { useNavigate } from "react-router";
 import defaultProfile from "../../assets/default_profile.jpg";
+import { ImageUploader } from "./ImageUploader";
 
 interface BrandProductModalProps {
   isOpen: boolean;
@@ -30,10 +31,11 @@ export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selected
   const [brandNameKo, setBrandNameKo] = useState("");
   const [brandNameEn, setBrandNameEn] = useState("");
   const [logoImage, setLogoImage] = useState<string | null>(null);
+  const [brandNameError, setBrandNameError] = useState("");
   
   // 제품 관련 state
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState<{ slug: string; name: string; logo: string } | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<{ slug: string; name: string; nameKo: string; logo: string } | null>(null);
   const [showBrandResults, setShowBrandResults] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<{ slug: string; name: string } | null>(null);
   const [categories, setCategories] = useState<{ slug: string; name: string; }[]>([]);
@@ -46,6 +48,7 @@ export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selected
   const [colorOptionKo, setColorOptionKo] = useState("");
   const [colorOptionEn, setColorOptionEn] = useState("");
   const [officialSwatchImage, setOfficialSwatchImage] = useState<string | null>(null);
+  const [officialSwatchImages, setOfficialSwatchImages] = useState<Array<{ id: string; file: File | null; existingUrl: string | null }>>([]);
   const [description, setDescription] = useState("");
 
 
@@ -54,44 +57,37 @@ export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selected
 
   useEffect(() => {
     if (selectedBrandSlug) {
-      const res = fetch(`http://localhost:8080/api/brand/info/${encodeURIComponent(selectedBrandSlug)}`, {
-          credentials: "include"
+      fetch(`http://localhost:8080/api/brand/info/${encodeURIComponent(selectedBrandSlug)}`, {
+        credentials: "include"
       })
       .then(res => res.json())
       .then(data => setSelectedBrand({
         ...data,
         logo: `http://localhost:8080${data.logoUrl}`
-    }));
-
-
+      }));
     }
 
-    if (selectedProductSlug) {
-      console.log(selectedProductSlug);
-        const res = fetch(`http://localhost:8080/api/product/info/${encodeURIComponent(selectedProductSlug)}`, {
-          credentials: "include"
-        })
-        .then(res => res.json())
-        .then(data => setSelectedProduct({
-           ...data,
-            image: `http://localhost:8080${data.image}`
-        }));
+    const fetchCategories = fetch('http://localhost:8080/api/category', { credentials: "include" })
+      .then(res => res.json());
 
-        if (selectedProduct) {
-            setProductNameEn(selectedProduct?.nameEn);
-            setProductNameKo(selectedProduct?.nameKo);
-        }
-    }
+    const fetchProduct = selectedProductSlug
+      ? fetch(`http://localhost:8080/api/product/info/${encodeURIComponent(selectedProductSlug)}`, { credentials: "include" })
+          .then(res => res.json())
+      : Promise.resolve(null);
+
+    Promise.all([fetchCategories, fetchProduct]).then(([categories, product]) => {
+      setCategories(categories);
+
+      if (product) {
+        setModalType("제품");
+        setSelectedProduct({ ...product, image: product.image });
+        setProductNameEn(product.name);
+        setProductNameKo(product.nameKo);
+        const matched = categories.find((c: { slug: string; name: string }) => c.slug === product.categorySlug);
+        if (matched) setSelectedCategory(matched);
+      }
+    });
   }, []);
-  
-
-useEffect(() => {
-  fetch('http://localhost:8080/api/category', {
-    credentials: "include"
-  })
-    .then(res => res.json())
-    .then((data: { slug: string; name: string; }[]) => setCategories(data));
-}, []);
 
   useEffect(() => {
   if (!brandSearchQuery.trim()) {
@@ -202,8 +198,12 @@ useEffect(() => {
           description: description
         })], { type: "application/json" }));
 
-        const file = swatchInputRef.current?.files?.[0];
-        if (file) formData.append("image", file);
+        for (const item of officialSwatchImages) {
+          if (item.file) formData.append("images", item.file);
+        }
+
+        //const file = swatchInputRef.current?.files?.[0];
+        //if (file) formData.append("image", file);
 
         const res = await fetch("http://localhost:8080/api/product", {
           method: "POST",
@@ -240,6 +240,7 @@ useEffect(() => {
     setColorOptionEn("");
     setOfficialSwatchImage(null);
     setRegisteredBrandId(null);
+    setDescription("");
   };
 
   const handleGoToBrand = () => {
@@ -257,138 +258,117 @@ useEffect(() => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 배경 오버레이 */}
-      <div 
-        className="absolute inset-0 bg-black/50"
+      <div
+        className="absolute inset-0 bg-black/30"
         onClick={onClose}
       />
-      
+
       {/* 모달 컨텐츠 */}
-      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-white rounded-xl border border-gray-200 max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-2 flex items-center justify-between rounded-t-xl z-10">
           <div className="relative">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 text-lg font-semibold text-gray-900"
+              className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-900 transition-colors"
             >
-              {modalType} 등록
-              <ChevronDown className={`w-5 h-5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              <span className="text-gray-400">// {modalType} 등록</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
-            
-            {/* 드롭다운 메뉴 */}
+
             {isDropdownOpen && (
               <>
-                <div 
-                  className="fixed inset-0 z-10" 
+                <div
+                  className="fixed inset-0 z-10"
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 min-w-[160px]">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden z-20 min-w-[120px]">
                   <button
-                    onClick={() => {
-                      setModalType("브랜드");
-                      setIsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-3 text-sm transition-colors border-b border-gray-100 ${
-                      modalType === "브랜드" ? "bg-gray-50 font-medium" : "hover:bg-gray-50"
-                    }`}
+                    onClick={() => { setModalType("브랜드"); setIsDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors border-b border-gray-100 ${modalType === "브랜드" ? "bg-gray-50 font-medium" : "hover:bg-gray-50"}`}
                   >
-                    브랜드
+                    // 브랜드 등록
                   </button>
                   <button
-                    onClick={() => {
-                      setModalType("제품");
-                      setIsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-3 text-sm transition-colors ${
-                      modalType === "제품" ? "bg-gray-50 font-medium" : "hover:bg-gray-50"
-                    }`}
+                    onClick={() => { setModalType("제품"); setIsDropdownOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${modalType === "제품" ? "bg-gray-50 font-medium" : "hover:bg-gray-50"}`}
                   >
-                    제품
+                    // 제품 등록
                   </button>
                 </div>
               </>
             )}
           </div>
-          
+
+          <div className="w-px self-stretch bg-gray-200 mx-2 -my-2" />
+
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors ml-auto"
           >
-            <X className="w-6 h-6 text-gray-500" />
+            <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
-        
+
         {/* 바디 */}
-        <div className="p-6 space-y-5">
+        <div className="p-5 space-y-4">
           {modalType === "브랜드" ? (
             <>
               {/* 브랜드명 (한글) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  브랜드명 (한글)
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={brandNameKo}
-                    onChange={(e) => setBrandNameKo(e.target.value)}
-                    placeholder="예: 헤라"
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                </div>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">브랜드명 (한글)</label>
+                <input
+                  type="text"
+                  value={brandNameKo}
+                  onChange={(e) => setBrandNameKo(e.target.value)}
+                  placeholder="예: 헤라"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs placeholder-gray-300 focus:outline-none hover:border-gray-300 transition-colors"
+                />
               </div>
 
               {/* 브랜드명 (영어) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  브랜드명 (영어)
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={brandNameEn}
-                    onChange={(e) => setBrandNameEn(e.target.value)}
-                    placeholder="예: HERA"
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                </div>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">브랜드명 (영어)</label>
+                <input
+                  type="text"
+                  value={brandNameEn}
+                  onChange={(e) => setBrandNameEn(e.target.value)}
+                  placeholder="예: HERA"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs placeholder-gray-300 focus:outline-none hover:border-gray-300 transition-colors"
+                />
               </div>
 
               {/* 브랜드 로고 이미지 업로드 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  브랜드 로고 이미지
-                </label>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">브랜드 로고 이미지</label>
                 <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoUpload}
-                    />
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
                 {logoImage ? (
-                  <div className="relative w-full aspect-[2/1] rounded-lg overflow-hidden border-2 border-gray-200 group">
-                    <img 
-                      src={logoImage} 
+                  <div className="relative w-full aspect-[2/1] rounded-xl overflow-hidden border border-gray-200 group">
+                    <img
+                      src={logoImage}
                       alt="브랜드 로고"
                       className="w-full h-full object-cover"
                     />
                     <button
                       onClick={() => setLogoImage(null)}
-                      className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-1.5 bg-white rounded-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <X className="w-4 h-4 text-gray-700" />
+                      <X className="w-3.5 h-3.5 text-gray-600" />
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => logoInputRef.current?.click()}
-                    className="w-full aspect-[2/1] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                    className="w-full aspect-[2/1] border border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-gray-300 hover:bg-gray-50 transition-colors"
                   >
-                    <Plus className="w-8 h-8 text-gray-400" />
-                    <span className="text-sm text-gray-500">브랜드 로고 이미지 추가</span>
+                    <Plus className="w-6 h-6 text-gray-300" />
+                    <span className="block text-xs text-gray-600">브랜드 로고 이미지 추가</span>
                   </button>
                 )}
               </div>
@@ -396,78 +376,57 @@ useEffect(() => {
           ) : (
             <>
               {/* 브랜드 검색 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  브랜드 검색
-                </label>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">브랜드</label>
                 <div className="relative">
                   {selectedBrand ? (
-                    // 선택된 브랜드 표시
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <img 
-                          src={selectedBrand.logo} 
+                        <img
+                          src={selectedBrand.logo}
                           alt={selectedBrand.name}
-                          className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+                          className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
                         />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{selectedBrand.name}</p>
+                          <p className="text-xs font-medium text-gray-800">{selectedBrand.nameKo}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{selectedBrand.name}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => setSelectedBrand(null)}
-                        className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                       >
-                        <X className="w-4 h-4 text-gray-500" />
+                        <X className="w-3.5 h-3.5 text-gray-400" />
                       </button>
                     </div>
                   ) : (
-                    // 브랜드 검색 입력
                     <>
-                      <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg">
+                        <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         <input
                           type="text"
                           value={brandSearchQuery}
-                          onChange={(e) => {
-                            setBrandSearchQuery(e.target.value);
-                            setShowBrandResults(true);
-                          }}
+                          onChange={(e) => { setBrandSearchQuery(e.target.value); setShowBrandResults(true); }}
                           onFocus={() => setShowBrandResults(true)}
                           placeholder="브랜드명 입력"
-                          className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                          className="flex-1 bg-transparent text-xs placeholder-gray-300 focus:outline-none"
                         />
                       </div>
-                      
-                      {/* 검색 결과 드롭다운 */}
+
                       {showBrandResults && brandResults.length > 0 && (
                         <>
-                          {/* 배경 클릭시 닫기 */}
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setShowBrandResults(false)}
-                          />
-                          
-                          {/* 검색 결과 리스트 */}
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 max-h-60 overflow-y-auto">
+                          <div className="fixed inset-0 z-10" onClick={() => setShowBrandResults(false)} />
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden z-20 max-h-60 overflow-y-auto">
                             {brandResults.map((brand) => (
                               <button
                                 key={brand.slug}
-                                onClick={() => {
-                                  setSelectedBrand(brand);
-                                  setBrandSearchQuery("");
-                                  setShowBrandResults(false);
-                                }}
-                                className="w-full text-left px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
+                                onClick={() => { setSelectedBrand(brand); setBrandSearchQuery(""); setShowBrandResults(false); }}
+                                className="w-full text-left px-4 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
-                                <img 
-                                  src={brand.logo}
-                                  alt={brand.name}
-                                  className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
-                                />
+                                <img src={brand.logo} alt={brand.name} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{brand.nameKo}</p>
-                                  <p className="text-xs text-gray-500 truncate">{brand.name}</p>
+                                  <p className="text-xs font-medium text-gray-800 truncate">{brand.nameKo}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5 truncate">{brand.name}</p>
                                 </div>
                               </button>
                             ))}
@@ -480,87 +439,57 @@ useEffect(() => {
               </div>
 
               {/* 제품명 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  제품명
-                </label>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">제품명</label>
                 <div className="relative">
                   {selectedProduct ? (
-                    // 선택된 제품 표시
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <img 
+                        <img
                           src={`http://localhost:8080${selectedProduct.image}`}
                           alt={selectedProduct.nameKo}
-                          className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+                          className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
                         />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{selectedProduct.nameKo}</p>
-                          <p className="text-xs text-gray-500">{selectedProduct.nameEn}</p>
+                          <p className="text-xs font-medium text-gray-800">{selectedProduct.nameKo}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{selectedProduct.nameEn}</p>
                         </div>
                       </div>
                       <button
-                        onClick={() => {
-                          setSelectedProduct(null);
-                          setProductNameKo("");
-                          setProductNameEn("");
-                        }}
-                        className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                        onClick={() => { setSelectedProduct(null); setProductNameKo(""); setProductNameEn(""); }}
+                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                       >
-                        <X className="w-4 h-4 text-gray-500" />
+                        <X className="w-3.5 h-3.5 text-gray-400" />
                       </button>
                     </div>
                   ) : (
-                    // 제품 검색 입력
                     <>
-                      <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                      <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg">
+                        <Search className="w-4 h-4 text-gray-400 flex-shrink-0 z-10" />
                         <input
                           type="text"
                           value={productSearchQuery}
-                          onChange={(e) => {
-                            setProductSearchQuery(e.target.value);
-                            setProductNameEn(e.target.value);
-                            setProductNameKo(e.target.value);
-                            setShowProductResults(true);
-                          }}
+                          onChange={(e) => { setProductSearchQuery(e.target.value); setProductNameEn(e.target.value); setProductNameKo(e.target.value); setShowProductResults(true); }}
                           onFocus={() => setShowProductResults(true)}
                           placeholder="제품명 검색 (한글 또는 영어)"
-                          className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                          className="flex-1 bg-transparent text-xs placeholder-gray-300 focus:outline-none"
                         />
                       </div>
-                      
-                      {/* 검색 결과 드롭다운 */}
+
                       {showProductResults && productResults.length > 0 && (
                         <>
-                          {/* 배경 클릭시 닫기 */}
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setShowProductResults(false)}
-                          />
-                          
-                          {/* 검색 결과 리스트 */}
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 max-h-60 overflow-y-auto">
+                          <div className="fixed inset-0 z-10" onClick={() => setShowProductResults(false)} />
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden z-20 max-h-60 overflow-y-auto">
                             {productResults.map((product) => (
                               <button
                                 key={product.slug}
-                                onClick={() => {
-                                  setSelectedProduct(product);
-                                  setProductNameKo(product.nameKo);
-                                  setProductNameEn(product.nameEn);
-                                  setProductSearchQuery("");
-                                  setShowProductResults(false);
-                                }}
-                                className="w-full text-left px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
+                                onClick={() => { setSelectedProduct(product); setProductNameKo(product.nameKo); setProductNameEn(product.nameEn); setProductSearchQuery(""); setShowProductResults(false); }}
+                                className="w-full text-left px-4 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
-                                <img 
-                                  src={product.image}
-                                  alt={product.nameKo}
-                                  className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
-                                />
+                                <img src={`http://localhost:8080${product.image}`} alt={product.nameKo} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{product.nameKo}</p>
-                                  <p className="text-xs text-gray-500 truncate">{product.nameEn}</p>
+                                  <p className="text-xs font-medium text-gray-800 truncate">{product.nameKo}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5 truncate">{product.nameEn}</p>
                                 </div>
                               </button>
                             ))}
@@ -570,46 +499,31 @@ useEffect(() => {
                     </>
                   )}
                 </div>
-                
               </div>
 
               {/* 카테고리 선택 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  카테고리
-                </label>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">카테고리</label>
                 <div className="relative">
                   <button
                     onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm text-left focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center justify-between"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs text-left focus:outline-none hover:border-gray-300 flex items-center justify-between transition-colors"
                   >
-                    <span className={selectedCategory ? "text-gray-900" : "text-gray-400"}>
+                    <span className={selectedCategory ? "text-gray-800" : "text-gray-300"}>
                       {selectedCategory?.name || "카테고리 선택"}
                     </span>
-                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
                   </button>
-                  
-                  {/* 카테고리 드롭다운 */}
+
                   {showCategoryDropdown && (
                     <>
-                      {/* 배경 클릭시 닫기 */}
-                      <div 
-                        className="fixed inset-0 z-10" 
-                        onClick={() => setShowCategoryDropdown(false)}
-                      />
-                      
-                      {/* 카테고리 리스트 */}
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-20 max-h-60 overflow-y-auto">
+                      <div className="fixed inset-0 z-10" onClick={() => setShowCategoryDropdown(false)} />
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden z-20 max-h-60 overflow-y-auto">
                         {categories.map((category) => (
                           <button
                             key={category.slug}
-                            onClick={() => {
-                              setSelectedCategory({ slug: category.slug, name: category.name });
-                              setShowCategoryDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-3 text-sm transition-colors border-b border-gray-100 last:border-b-0 ${
-                              selectedCategory?.slug === category.slug ? 'bg-gray-50 font-medium' : 'hover:bg-gray-50'
-                            }`}
+                            onClick={() => { setSelectedCategory({ slug: category.slug, name: category.name }); setShowCategoryDropdown(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-xs transition-colors border-b border-gray-100 last:border-b-0 ${selectedCategory?.slug === category.slug ? 'bg-gray-50 font-medium text-gray-800' : 'text-gray-700 hover:bg-gray-50'}`}
                           >
                             {category.name}
                           </button>
@@ -620,93 +534,60 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* 색상 옵션 (선택사항) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  색상 옵션 <span className="text-gray-400 text-xs">(선택사항)</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
+              {/* 색상 옵션 */}
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">색상 옵션 <span className="text-gray-300">(선택사항)</span></label>
+                <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
                     value={colorOptionKo}
                     onChange={(e) => setColorOptionKo(e.target.value)}
                     placeholder="한글 (예: 레드)"
-                    className="px-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    className="px-3 py-2.5 border border-gray-200 rounded-lg text-xs placeholder-gray-300 focus:outline-none hover:border-gray-300 transition-colors"
                   />
                   <input
                     type="text"
                     value={colorOptionEn}
                     onChange={(e) => setColorOptionEn(e.target.value)}
                     placeholder="영어 (예: Red)"
-                    className="px-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    className="px-3 py-2.5 border border-gray-200 rounded-lg text-xs placeholder-gray-300 focus:outline-none hover:border-gray-300 transition-colors"
                   />
                 </div>
               </div>
 
               {/* 공식 스와치 이미지 업로드 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  공식 스와치 이미지
-                </label>
-                <input
-                ref={swatchInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleSwatchUpload}
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">공식 스와치 이미지</label>
+                <ImageUploader
+                  initialImages={[]}
+                  onChange={(items) => { setOfficialSwatchImages(items); }}
                 />
-
-                {officialSwatchImage ? (
-                  <div className="relative w-full aspect-[2/1] rounded-lg overflow-hidden border-2 border-gray-200 group">
-                    <img 
-                      src={officialSwatchImage} 
-                      alt="공식 스와치"
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      onClick={() => swatchInputRef.current?.click()}
-                      className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4 text-gray-700" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => swatchInputRef.current?.click()}
-                    className="w-full aspect-[2/1] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-gray-400 hover:bg-gray-50 transition-colors"
-                  >
-                    <Plus className="w-8 h-8 text-gray-400" />
-                    <span className="text-sm text-gray-500">공홈발색 추가</span>
-                  </button>
-                )}
               </div>
 
               {/* 제품 설명 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  제품 설명
-                </label>
+              <div className="space-y-3">
+                <label className="block text-xs text-gray-600">제품 설명</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="제품에 대한 설명을 입력하세요."
                   rows={4}
-                  className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs placeholder-gray-300 focus:outline-none hover:border-gray-300 transition-colors resize-none"
                 />
               </div>
             </>
           )}
         </div>
-        
+
         {/* 푸터 */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end rounded-b-2xl">
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-5 py-3 flex justify-end rounded-b-2xl">
           <button
             onClick={handleSubmit}
             disabled={
               (modalType === "브랜드" && (!brandNameKo || !brandNameEn || !logoImage)) ||
-              (modalType === "제품" && (!selectedBrand || !productNameKo || !officialSwatchImage))
+              (modalType === "제품" && (!selectedBrand || !productNameKo))
             }
-            className="px-6 py-2.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2 text-xs bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             등록
           </button>
@@ -716,45 +597,29 @@ useEffect(() => {
       {/* 성공 모달 */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          {/* 배경 오버레이 */}
-          <div className="absolute inset-0 bg-black/50" />
-          
-          {/* 성공 메시지 모달 */}
-          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 text-center">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg 
-                  className="w-8 h-8 text-green-600" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M5 13l4 4L19 7" 
-                  />
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="relative w-full max-w-sm bg-white rounded-xl border border-gray-200 p-6 text-center">
+            <div className="mb-5">
+              <div className="w-12 h-12 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                등록 완료
-              </h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">등록 완료</h3>
+              <p className="block text-xs text-gray-600">
                 {modalType === "브랜드" ? "브랜드가" : "제품이"} 성공적으로 등록되었습니다.
               </p>
             </div>
-            
             <div className="flex gap-2">
               <button
                 onClick={handleSuccessConfirm}
-                className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-200 text-xs text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 확인
               </button>
               <button
                 onClick={handleGoToBrand}
-                className="flex-1 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-900 text-xs text-white rounded-lg hover:bg-gray-800 transition-colors"
               >
                 보러가기
               </button>
@@ -765,47 +630,26 @@ useEffect(() => {
 
       {showFailureModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          {/* 배경 오버레이 */}
-          <div className="absolute inset-0 bg-black/50" />
-          
-          {/* 실패 메시지 모달 */}
-          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 text-center">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg 
-                  className="w-8 h-8 text-red-600" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M6 18L18 6M6 6l12 12" 
-                  />
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="relative w-full max-w-sm bg-white rounded-xl border border-gray-200 p-6 text-center">
+            <div className="mb-5">
+              <div className="w-12 h-12 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                등록 실패
-              </h3>
-              <p className="text-sm text-gray-600">
-                {errorMessage}
-              </p>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">등록 실패</h3>
+              <p className="block text-xs text-gray-600">{errorMessage}</p>
             </div>
-            
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowFailureModal(false)}
-                className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                확인
-              </button>
-            </div>
+            <button
+              onClick={() => setShowFailureModal(false)}
+              className="w-full px-4 py-2 border border-gray-200 text-xs text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}
-
     </div>
   );
 }

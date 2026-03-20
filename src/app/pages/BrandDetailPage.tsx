@@ -38,68 +38,50 @@ export function BrandDetailPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {/* 브랜드 헤더 */}
-        <div className="flex items-center gap-6 mb-12 pb-8 border-b border-gray-200">
-          {/* 브랜드 로고 */}
-          <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-gray-200 flex-shrink-0">
-            <img 
-              src={brand.logoUrl} 
+        <div className="flex items-center gap-5 mb-8 pb-6 border-b border-gray-200">
+          <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+            <img
+              src={brand.logoUrl}
               alt={brand.nameKo}
               className="w-full h-full object-cover"
             />
           </div>
-          
-          {/* 브랜드 정보 */}
+
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">
-              {brand.nameKo}
-            </h1>
-            <p className="text-lg text-gray-500">
-              {brand.name}
-            </p>
-            <p className="text-sm text-gray-400 mt-2">
-              {brand.products.length}개의 제품
-            </p>
+            <h1 className="text-2xl font-semibold text-gray-900">{brand.nameKo}</h1>
+            <p className="text-sm text-gray-400 mt-0.5">{brand.name}</p>
+            <p className="text-xs text-gray-400 mt-2">총 {brand.products.length}개의 제품</p>
           </div>
         </div>
 
         {/* 제품 리스트 */}
         <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-6">제품 목록</h2>
-          
-          {/* 그리드 레이아웃 */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="flex items-center mb-4 pb-3 border-b border-gray-200">
+            <h2 className="text-xs font-semibold tracking-widest text-gray-400 uppercase">// 제품 목록</h2>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {brand.products.map((product) => (
               <div
                 key={product.slug}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 transition-colors cursor-pointer"
               >
                 {/* 제품 이미지 */}
-                <div className="aspect-square overflow-hidden bg-gray-100">
-                  <img 
-                    src={product.image} 
+                <div className="aspect-square overflow-hidden">
+                  <img
+                    src={product.image}
                     alt={product.nameKo}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-                
+
                 {/* 제품 정보 */}
-                <div className="p-3">
-                  <h3 className="font-medium text-sm text-gray-900 mb-0.5 truncate">
-                    {product.nameKo}
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-2 truncate">
-                    {product.name}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">
-                      발색샷 {product.swatchCount}개
-                    </span>
-                    <button className="text-xs text-gray-900 font-medium hover:underline">
-                      보기 →
-                    </button>
-                  </div>
+                <div className="px-3 py-2.5 border-t border-gray-100">
+                  <h3 className="text-xs font-medium text-gray-800 truncate">{product.nameKo}</h3>
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">{product.name}</p>
+                  <p className="text-xs text-gray-400 mt-1.5">발색샷 {product.swatchCount}개</p>
                 </div>
               </div>
             ))}
