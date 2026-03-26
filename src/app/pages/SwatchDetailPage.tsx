@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router";
+import { API_BASE } from "../../config";
 import { Heart, MessageCircle, Repeat2, Bookmark, Share, MoreHorizontal } from "lucide-react";
 import { Tweet } from "react-tweet";
 import defaultProfile from "../../assets/default_profile.jpg";
@@ -36,6 +37,70 @@ interface TweetPost {
 }
 
 type FeedItem = SwatchPost | TweetPost;
+
+interface ServerSwatchItem {
+  id: number;
+  user: {
+    name: string;
+    handle: string;
+    profileImageUrl: string | null;
+  };
+  createdAt: string;
+  content: string;
+  images: string[];
+  likeCount: number;
+  commentCount: number;
+  liked: boolean;
+  isBookmarked: boolean;
+  sourceType: "UPLOAD" | "TWITTER";
+  tweetUrl: string | null;
+}
+
+function formatRelativeTime(createdAt: string): string {
+  const diff = Date.now() - new Date(createdAt).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "방금";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function extractTweetId(tweetUrl: string): string {
+  return tweetUrl.match(/status(?:es)?\/(\d+)/)?.[1] ?? "";
+}
+
+function mapToFeedItem(item: ServerSwatchItem): FeedItem {
+  const user = {
+    name: item.user.name,
+    handle: item.user.handle,
+    avatar: item.user.profileImageUrl
+      ? item.user.profileImageUrl.startsWith("http")
+        ? item.user.profileImageUrl
+        : `${API_BASE}${item.user.profileImageUrl}`
+      : defaultProfile,
+  };
+  const time = formatRelativeTime(item.createdAt);
+
+  if (item.sourceType === "TWITTER" && item.tweetUrl) {
+    return { type: "tweet", id: item.id, tweetId: extractTweetId(item.tweetUrl), user, time };
+  }
+
+  return {
+    type: "swatch",
+    id: item.id,
+    user,
+    time,
+    description: item.content,
+    images: item.images.map(img => img.startsWith("http") ? img : `${API_BASE}${img}`),
+    likeCount: item.likeCount,
+    commentCount: item.commentCount,
+    retweetCount: 0,
+    viewCount: 0,
+    isLiked: item.liked,
+    isBookmarked: item.isBookmarked,
+  };
+}
 
 function ImageGrid({ images }: { images: string[] }) {
   if (images.length === 1) {
@@ -79,6 +144,25 @@ function SwatchPostCard({ post }: { post: SwatchPost }) {
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [bookmarked, setBookmarked] = useState(post.isBookmarked);
+
+  const handleLike = async () => {
+    const next = !liked;
+    setLiked(next);
+    setLikeCount(c => next ? c + 1 : c - 1);
+    try {
+      const res = await fetch(`${API_BASE}/api/swatch/like/${post.id}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      setLiked(data.liked);
+      setLikeCount(data.likeCount);
+    } catch (e) {
+      console.error("swatch like error", e);
+      setLiked(!next);
+      setLikeCount(c => next ? c - 1 : c + 1);
+    }
+  };
 
   return (
     <div className="px-4 py-4 border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
@@ -130,7 +214,7 @@ function SwatchPostCard({ post }: { post: SwatchPost }) {
             </button>
 
             <button
-              onClick={() => { setLiked(!liked); setLikeCount(c => liked ? c - 1 : c + 1); }}
+              onClick={handleLike}
               className={`flex items-center gap-1.5 transition-colors group ${liked ? "text-pink-500" : "hover:text-pink-500"}`}
             >
               <div className="p-1 rounded-full group-hover:bg-pink-50 transition-colors">
@@ -160,70 +244,6 @@ function SwatchPostCard({ post }: { post: SwatchPost }) {
   );
 }
 
-// 목 데이터 (서버 API 연결 예정)
-const mockFeed: FeedItem[] = [
-  {
-    type: "swatch",
-    id: 1,
-    user: { name: "cosmetictic", handle: "@cosmetictic", avatar: defaultProfile },
-    time: "1h",
-    description: "디올 썸머 꿀뤼르 뜬 거 보고 디올 쓰고 싶어서 3꿀 코랄캔버스랑 블러서 데이지 꺼냈으요ㅋ 둘 다 넘 예쁘고 잘 어울리고~~~s2",
-    images: [
-      "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600",
-      "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?w=400",
-      "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400",
-    ],
-    likeCount: 5,
-    commentCount: 0,
-    retweetCount: 1,
-    viewCount: 144,
-    isLiked: false,
-    isBookmarked: false,
-  },
-  {
-    type: "tweet",
-    id: 2,
-    tweetId: "2034784404560912792",
-    user: { name: "지은", handle: "@jieun_beauty", avatar: defaultProfile },
-    time: "3h",
-  },
-  {
-    type: "swatch",
-    id: 3,
-    user: { name: "kimloveS2", handle: "@kimloveS2", avatar: defaultProfile },
-    time: "53m",
-    description: "롬앤 주시래스팅티트 20호 발색 너무 예뻐서 참을 수가 없어요 🌸",
-    images: [
-      "https://images.unsplash.com/photo-1638225304129-eae5c3604d9c?w=600",
-    ],
-    likeCount: 12,
-    commentCount: 3,
-    retweetCount: 0,
-    viewCount: 89,
-    isLiked: false,
-    isBookmarked: false,
-  },
-  {
-    type: "swatch",
-    id: 4,
-    user: { name: "makeuplog", handle: "@makeuplog", avatar: defaultProfile },
-    time: "2h",
-    description: "맥 루비우 드디어 득템!! 색감이 진짜 미쳤다",
-    images: [
-      "https://images.unsplash.com/photo-1563441811597-99b0960e4239?w=400",
-      "https://images.unsplash.com/photo-1602260395251-0fe691861b56?w=400",
-      "https://images.unsplash.com/photo-1585387047269-e66bf53002f5?w=400",
-      "https://images.unsplash.com/photo-1714420076326-476283c9fcfa?w=400",
-    ],
-    likeCount: 34,
-    commentCount: 7,
-    retweetCount: 2,
-    viewCount: 312,
-    isLiked: true,
-    isBookmarked: true,
-  },
-];
-
 export function SwatchDetailPage() {
   const { id } = useParams();
   const [posts, setPosts] = useState<FeedItem[]>([]);
@@ -236,25 +256,20 @@ export function SwatchDetailPage() {
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
-
-    // TODO: 서버 API 연결
-    // const res = await fetch(`http://localhost:8080/api/swatch?page=${page}&size=10`, { credentials: "include" });
-    // const data = await res.json();
-    // setPosts(prev => [...prev, ...data.content]);
-    // setHasMore(!data.last);
-    // setPage(p => p + 1);
-
-    // 목 데이터 (임시)
-    setTimeout(() => {
-      setPosts(prev => [
-        ...prev,
-        ...mockFeed.map(p => ({ ...p, id: prev.length + p.id })),
-      ]);
+    try {
+      const params = new URLSearchParams({ page: String(page), size: "10" });
+      if (id) params.set("productSlug", id);
+      const res = await fetch(`${API_BASE}/api/swatch?${params}`, { credentials: "include" });
+      const data = await res.json();
+      setPosts(prev => [...prev, ...data.content.map(mapToFeedItem)]);
+      setHasMore(!data.last);
       setPage(p => p + 1);
-      if (page >= 2) setHasMore(false);
+    } catch (e) {
+      console.error("swatch load error", e);
+    } finally {
       setLoading(false);
-    }, 400);
-  }, [loading, hasMore, page]);
+    }
+  }, [loading, hasMore, page, id]);
 
   // 초기 로드
   useEffect(() => {

@@ -1,8 +1,9 @@
-import { FeedCard } from "../components/FeedCard";
+import { FeedProductCard } from "../components/FeedProductCard";
+import { SwatchFeedCard, SwatchFeedItem } from "../components/SwatchFeedCard";
+import { API_BASE } from "../../config";
 import { DiscountCard } from "../components/DiscountCard";
-import { Tweet } from "react-tweet";
-import { ChevronDown } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import defaultProfile from "../../assets/default_profile.jpg";
@@ -19,85 +20,76 @@ interface DashboardData {
   categoryStats: CategoryStat[];
 }
 
+interface PopularProduct {
+  slug: string;
+  officialImageUrls: string[] | null;
+  nameKo: string;
+  optionNameKo: string | null;
+  brandName: string;
+  brandNameKo: string;
+  brandLogoUrl: string | null;
+  categorySlug: string;
+  categoryName: string;
+  swatchCount: number;
+  likeCount: number;
+  viewCount: number;
+  tags: { id: number; tagValue: string; color: string | null }[];
+  user: { name: string; profileImageUrl: string | null };
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("립스틱");
+  const [selectedCategory, setSelectedCategory] = useState<{ name: string; slug: string }>({ name: "전체", slug: "" });
+  const [categories, setCategories] = useState<{ name: string; slug: string }[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [sliderScrollLeft, setSliderScrollLeft] = useState(0);
+  const [popularProducts, setPopularProducts] = useState<PopularProduct[]>([]);
+  const [popularPage, setPopularPage] = useState(0);
+  const [popularIsLast, setPopularIsLast] = useState(false);
+  const [popularFetching, setPopularFetching] = useState(false);
+
+  const slideBy = (dir: "left" | "right") => {
+    if (!sliderRef.current) return;
+    const cardWidth = sliderRef.current.offsetWidth / 3;
+    sliderRef.current.scrollBy({ left: dir === "right" ? cardWidth : -cardWidth, behavior: "smooth" });
+  };
+
+  const fetchPopular = (page: number, categorySlug: string) => {
+    if (popularFetching) return;
+    setPopularFetching(true);
+    const params = new URLSearchParams({ page: String(page), size: "9" });
+    if (categorySlug) params.set("category", categorySlug);
+    fetch(`${API_BASE}/api/home/popular-products?${params}`, { credentials: "include" })
+      .then(res => res.json())
+      .then((data: { content: PopularProduct[]; last: boolean }) => {
+        setPopularProducts(prev => page === 0 ? data.content : [...prev, ...data.content]);
+        setPopularIsLast(data.last);
+        setPopularPage(page);
+      })
+      .catch(() => {})
+      .finally(() => setPopularFetching(false));
+  };
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/home/dashboard", { credentials: "include" })
+    fetch(`${API_BASE}/api/home/dashboard`, { credentials: "include" })
       .then(res => res.json())
       .then(data => setDashboard(data))
       .catch(() => {});
+
+    fetch(`${API_BASE}/api/category`, { credentials: "include" })
+      .then(res => res.json())
+      .then((data: { name: string; slug: string }[]) => {
+        setCategories(data);
+      })
+      .catch(() => {});
   }, []);
 
-  const categories = ["립스틱", "하이라이터", "블러셔", "아이섀도우", "립틴트"];
-// 좋아요 많은 제품들
-  const popularProducts = [
-    {
-      id: 1,
-      images: [
-        "https://images.unsplash.com/photo-1602260395251-0fe691861b56?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWQlMjBsaXBzdGljayUyMGJlYXV0eXxlbnwxfHx8fDE3NzI2MDE0MDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1563441811597-99b0960e4239?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiZXJyeSUyMGxpcHN0aWNrJTIwY29zbWV0aWN8ZW58MXx8fHwxNzcyNjAxNDA1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1585387047269-e66bf53002f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsaXBzdGljayUyMHN3YXRjaCUyMHBhbGV0dGV8ZW58MXx8fHwxNzcyNjAxNDAwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1714420076326-476283c9fcfa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxudWRlJTIwbGlwc3RpY2slMjB0dWJlfGVufDF8fHx8MTc3MjYwMTQwMXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      productName: "벨벳 매트 립스틱",
-      swatchCount: 142,
-      likeCount: 1200,
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1722270608841-35d7372a2e85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0JTIwZmFjZSUyMHByb2ZpbGV8ZW58MXx8fHwxNzcyNjAyMDQxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "지은",
-        date: "2026.03.01 14:20",
-      },
-    },
-    {
-      id: 2,
-      images: [
-        "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaW5rJTIwbGlwc3RpY2slMjBjb3NtZXRpY3xlbnwxfHx8fDE3NzI2MDE0MDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1635263282145-253319c75fd4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3JhbCUyMGxpcHN0aWNrJTIwbWFrZXVwfGVufDF8fHx8MTc3MjYwMTQwNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      productName: "로맨틱 핑크 립스틱",
-      swatchCount: 89,
-      likeCount: 856,
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1643646805556-350c057663dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGFzaWFuJTIwcG9ydHJhaXQlMjBzbWlsZXxlbnwxfHx8fDE3NzI1NzQzNjF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "수아",
-        date: "2026.03.02 10:15",
-      },
-    },
-    {
-      id: 3,
-      images: [
-        "https://images.unsplash.com/photo-1770364016601-39c645feea99?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcmFuZ2UlMjBsaXBzdGljayUyMGJlYXV0eXxlbnwxfHx8fDE3NzI2MDE0MDV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      productName: "코랄 오렌지 립스틱",
-      swatchCount: 52,
-      likeCount: 634,
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1634052970539-224813476367?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnaXJsJTIwcG9ydHJhaXQlMjBiZWF1dHklMjBmYWNlfGVufDF8fHx8MTc3MjYwMjA0Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "서연",
-        date: "2026.03.03 09:30",
-      },
-    },
-    {
-      id: 4,
-      images: [
-        "https://images.unsplash.com/photo-1690214392595-297a43d5b6f1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoaWdobGlnaHRlciUyMG1ha2V1cCUyMGNvc21ldGljfGVufDF8fHx8MTc3MjYwODg1NXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1764333746618-6285bf70db23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibHVzaCUyMHBvd2RlciUyMGNvbXBhY3QlMjBiZWF1dHl8ZW58MXx8fHwxNzcyNjA4ODU1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1676918325488-d4cd70b58f60?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxleWVzaGFkb3clMjBwYWxldHRlJTIwbWFrZXVwJTIwY29sb3JmdWx8ZW58MXx8fHwxNzcyNTEyMjQwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      productName: "글로우 하이라이터",
-      swatchCount: 73,
-      likeCount: 921,
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1655249493799-9cee4fe983bb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0JTIwcHJvZmVzc2lvbmFsJTIwaGVhZHNob3R8ZW58MXx8fHwxNzcyNDcyNzgzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "유진",
-        date: "2026.03.03 13:00",
-      },
-    },
-  ];
+  useEffect(() => {
+    setPopularProducts([]);
+    fetchPopular(0, selectedCategory.slug);
+  }, [selectedCategory]);
 
   // 최근 편집된 항목들 (임시 목 데이터 - 서버 API 연결 예정)
   const recentlyEdited = [
@@ -142,6 +134,47 @@ export function HomePage() {
       title: "디올 어딕트 립스틱",
       author: "수아",
       avatar: defaultProfile,
+    },
+  ];
+
+  // 인기 발색샷 mock 데이터
+  const mockSwatchFeed: SwatchFeedItem[] = [
+    {
+      type: "swatch",
+      user: { name: "지은", handle: "@jieun", avatar: defaultProfile },
+      time: "2h",
+      description: "롬앤 주시래스팅 틴트 #20 실제 발색이에요. 생각보다 훨씬 선명하고 지속력도 좋아요!",
+      images: [
+        "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?w=600",
+        "https://images.unsplash.com/photo-1638225304129-eae5c3604d9c?w=600",
+      ],
+      likeCount: 24,
+      commentCount: 3,
+      isLiked: false,
+    },
+    {
+      type: "swatch",
+      user: { name: "수아", handle: "@sua_beauty", avatar: defaultProfile },
+      time: "5h",
+      description: "헤라 블랙 쿠션 23호 발색입니다. 커버력 대박이에요",
+      images: [
+        "https://images.unsplash.com/photo-1602260395251-0fe691861b56?w=600",
+      ],
+      likeCount: 41,
+      commentCount: 7,
+      isLiked: true,
+    },
+    {
+      type: "tweet",
+      tweetId: "2033875454248292820",
+      user: { name: "서연", handle: "@seoyeon_tw", avatar: defaultProfile },
+      time: "1d",
+    },
+    {
+      type: "tweet",
+      tweetId: "2036597317613265064",
+      user: { name: "mogimogi098", handle: "@mogimogi098", avatar: defaultProfile },
+      time: "3h",
     },
   ];
 
@@ -232,14 +265,23 @@ export function HomePage() {
               onClick={() => setCategoryMenuOpen(!categoryMenuOpen)}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              <span>{selectedCategory}</span>
+              <span>{selectedCategory.name}</span>
               <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
             </button>
 
             {categoryMenuOpen && (
               <div className="absolute right-0 mt-1.5 w-36 bg-white border border-gray-200 rounded-lg shadow-sm z-10 overflow-hidden">
+                <div>
+                  <button
+                    onClick={() => { setSelectedCategory({ name: "전체", slug: "" }); setCategoryMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    전체
+                  </button>
+                  {categories.length > 0 && <div className="h-px bg-gray-100 mx-2" />}
+                </div>
                 {categories.map((category, index) => (
-                  <div key={category}>
+                  <div key={category.slug}>
                     <button
                       onClick={() => {
                         setSelectedCategory(category);
@@ -247,7 +289,7 @@ export function HomePage() {
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
                     >
-                      {category}
+                      {category.name}
                     </button>
                     {index < categories.length - 1 && (
                       <div className="h-px bg-gray-100 mx-2" />
@@ -259,65 +301,84 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {popularProducts.map((product) => (
-            <div
-              key={product.id}
-              onClick={() => navigate(`/swatch/${product.id}`)}
-              className="cursor-pointer"
+        <div className="relative">
+          {/* 왼쪽 화살표 */}
+          {sliderScrollLeft > 0 && (
+            <button
+              onClick={() => slideBy("left")}
+              className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
             >
-              <FeedCard
-                images={product.images}
-                productName={product.productName}
-                userProfile={product.userProfile}
-              />
-            </div>
-          ))}
+              <ChevronLeft className="w-4 h-4 text-gray-500" />
+            </button>
+          )}
+
+          {/* 슬라이더 */}
+          <div
+            ref={sliderRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setSliderScrollLeft(el.scrollLeft);
+              if (!popularIsLast && !popularFetching && el.scrollLeft + el.offsetWidth >= el.scrollWidth - 100) {
+                fetchPopular(popularPage + 1, selectedCategory.slug);
+              }
+            }}
+            className="flex gap-3 overflow-x-auto scroll-smooth"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {popularProducts.map((product) => (
+              <div
+                key={product.slug}
+                onClick={() => navigate(`/product/${product.slug}`)}
+                className="cursor-pointer flex-shrink-0"
+                style={{ width: "calc((100% - 24px) / 3)" }}
+              >
+                <FeedProductCard
+                  images={(product.officialImageUrls ?? []).map(url => `${API_BASE}${url}`)}
+                  brandName={product.brandNameKo || product.brandName}
+                  productName={`${product.nameKo} ${product.optionNameKo ?? ""}`.trim()}
+                  categoryName={product.categoryName}
+                  swatchCount={product.swatchCount}
+                  likeCount={product.likeCount}
+                  viewCount={product.viewCount}
+                  tags={product.tags}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* 오른쪽 화살표 */}
+          <button
+            onClick={() => slideBy("right")}
+            className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4 text-gray-500" />
+          </button>
         </div>
       </div>
 
-      <div className="border border-gray-200 rounded-xl p-4 mb-10">
-        <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-4">// 피드</p>
-        <ResponsiveMasonry columnsCountBreakPoints={{350: 1, 750: 2, 900: 3, 1200: 4}}>
-          <Masonry gutter="12px">
-            {popularProducts.slice(0, 2).map((product) => (
-              <div
-                key={product.id}
-                onClick={() => navigate(`/swatch/${product.id}`)}
-                className="cursor-pointer"
-              >
-                <FeedCard
-                  images={product.images}
-                  productName={product.productName}
-                  swatchCount={product.swatchCount}
-                  likeCount={product.likeCount}
-                  userProfile={product.userProfile}
-                />
-              </div>
-            ))}
-
-            {/* 트위터 임베드 추가 */}
-            <div className="flex flex-col">
-              <Tweet id="2033875454248292820" />
-            </div>
-
-            {popularProducts.slice(2).map((product) => (
-              <div
-                key={product.id}
-                onClick={() => navigate(`/swatch/${product.id}`)}
-                className="cursor-pointer"
-              >
-                <FeedCard
-                  images={product.images}
-                  productName={product.productName}
-                  swatchCount={product.swatchCount}
-                  likeCount={product.likeCount}
-                  userProfile={product.userProfile}
-                />
-              </div>
-            ))}
-          </Masonry>
-        </ResponsiveMasonry>
+      <div className="mb-10">
+        <div className="flex items-center mb-4 pb-3 border-b border-gray-200">
+          <h2 className="text-xs font-semibold tracking-widest text-gray-400 uppercase">// 인기 발색샷</h2>
+        </div>
+        <div className="relative" style={{ maxHeight: '600px', overflow: 'hidden' }}>
+          <ResponsiveMasonry columnsCountBreakPoints={{350: 1, 750: 2, 900: 3}}>
+            <Masonry gutter="12px">
+              {mockSwatchFeed.map((item, i) => (
+                <SwatchFeedCard key={i} {...item} />
+              ))}
+            </Masonry>
+          </ResponsiveMasonry>
+          {/* 하단 페이드 */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        </div>
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => navigate('/swatch')}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            더보기
+          </button>
+        </div>
       </div>
 
       {/* 할인중인거 섹션 */}

@@ -1,16 +1,18 @@
+import { API_BASE } from "../../config";
+
 export function LoginPage() {
   const handleGoogleLogin = () => {
     // 실제 구글 OAuth 로그인 로직이 들어갈 부분
     console.log("구글 로그인 시도");
     // 예: window.location.href = "YOUR_GOOGLE_OAUTH_URL";
-    window.location.href = "http://localhost:8080/oauth2/authorization/google";
+    window.location.href = `${API_BASE}/oauth2/authorization/google`;
   };
 
   const handleKakaoLogin = () => {
     // 실제 카카오 OAuth 로그인 로직이 들어갈 부분
     console.log("카카오 로그인 시도");
     // 예: window.location.href = "YOUR_KAKAO_OAUTH_URL";
-    window.location.href = "http://localhost:8080/oauth2/authorization/kakao";
+    window.location.href = `${API_BASE}/oauth2/authorization/kakao`;
   };
 
   return (

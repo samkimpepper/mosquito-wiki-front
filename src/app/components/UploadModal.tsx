@@ -1,8 +1,11 @@
-import { X, Image, ChevronDown, Search } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { X, ChevronDown, Search } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { Tweet } from "react-tweet";
 import { useAuth } from "../../context/AuthContext";
+import { API_BASE } from "../../config";
 import defaultProfile from "../../assets/default_profile.jpg";
+import { ImageUploader } from "./ImageUploader";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -18,13 +21,19 @@ interface ProductResult {
 }
 
 export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    if (isOpen) document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedImages, setSelectedImages] = useState<{ url: string; file: File }[]>([]);
+  const [imageItems, setImageItems] = useState<{ id: string; file: File | null; existingUrl: string | null }[]>([]);
   const [postType, setPostType] = useState("발색샷");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
   // 제품 검색 관련 state
@@ -36,6 +45,22 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
   // 트위터 링크 감지 및 임베드 관련 state
   const [tweetId, setTweetId] = useState<string | null>(null);
   const [tweetUrl, setTweetUrl] = useState<string>("");
+
+  // productSlug가 있으면 해당 제품을 pre-select
+  useEffect(() => {
+    if (!productSlug) return;
+    fetch(`${API_BASE}/api/product/${productSlug}`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        setSelectedProducts([{
+          slug: data.slug,
+          nameKo: data.nameKo,
+          nameEn: data.name,
+          image: data.officialImageUrls?.[0] ? `${API_BASE}${data.officialImageUrls[0]}` : defaultProfile,
+        }]);
+      })
+      .catch(() => {});
+  }, [productSlug]);
 
   // 트위터 링크 감지 및 제거
   useEffect(() => {
@@ -57,13 +82,13 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
       return;
     }
     const timer = setTimeout(async () => {
-      const res = await fetch(`http://localhost:8080/api/product/search?keyword=${encodeURIComponent(productSearchQuery)}`, {
+      const res = await fetch(`${API_BASE}/api/product/search?keyword=${encodeURIComponent(productSearchQuery)}`, {
         credentials: "include"
       });
       const data = await res.json();
       setProductResults(data.map((item: any) => ({
         ...item,
-        image: item.image ? `http://localhost:8080${item.image}` : defaultProfile,
+        image: item.image ? `${API_BASE}${item.image}` : defaultProfile,
       })));
     }, 150);
     return () => clearTimeout(timer);
@@ -72,7 +97,7 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
   const resetForm = useCallback(() => {
     setTitle("");
     setDescription("");
-    setSelectedImages([]);
+    setImageItems([]);
     setPostType("발색샷");
     setProductSearchQuery("");
     setSelectedProducts([]);
@@ -82,44 +107,37 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
 
   if (!isOpen) return null;
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    const remaining = 4 - selectedImages.length;
-    const toAdd = files.slice(0, remaining).map(file => ({
-      url: URL.createObjectURL(file),
-      file,
-    }));
-    setSelectedImages(prev => [...prev, ...toAdd]);
-    e.target.value = "";
-  };
-
   const handlePost = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
       const isTwitter = !!tweetId;
+      const productSlugs = selectedProducts.map(p => p.slug);
+      console.log("[UploadModal] productSlugs:", productSlugs);
       const formData = new FormData();
 
       formData.append("data", new Blob([JSON.stringify({
-        productSlug: selectedProducts[0]?.slug ?? null,
+        productSlugs,
         content: [title, description].filter(Boolean).join("\n"),
         sourceType: isTwitter ? "TWITTER" : "UPLOAD",
         tweetUrl: isTwitter ? tweetUrl : null,
       })], { type: "application/json" }));
 
-      for (const img of selectedImages) {
-        formData.append("images", img.file);
+      for (const item of imageItems) {
+        if (item.file) formData.append("images", item.file);
       }
 
-      await fetch("http://localhost:8080/api/swatch", {
+      const res = await fetch(`${API_BASE}/api/swatch`, {
         method: "POST",
         credentials: "include",
         body: formData,
       });
+      const swatchId = await res.json();
 
       resetForm();
       onClose();
+      navigate(`/swatch/${swatchId}`);
     } catch (e) {
       console.error("swatch upload error", e);
     } finally {
@@ -216,15 +234,6 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
                   </>
                 )}
               </div>
-
-              {/* 제목 입력 */}
-              <input
-                type="text"
-                placeholder="제목을 입력하세요"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-sm font-medium placeholder-gray-300 focus:outline-none border-b border-gray-100 pb-2"
-              />
 
               {/* 제품 검색 */}
               <div className="space-y-2">
@@ -351,6 +360,15 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
                 </div>
               </div>
 
+              {/* 제목 입력 */}
+              <input
+                type="text"
+                placeholder="제목을 입력하세요"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full text-sm font-medium placeholder-gray-300 focus:outline-none border-b border-gray-100 pb-2"
+              />
+
               {/* 설명 입력 */}
               <textarea
                 placeholder="제품에 대한 설명 혹은 트위터 링크를 붙여넣기해주세요."
@@ -374,75 +392,27 @@ export function UploadModal({ isOpen, onClose, productSlug }: UploadModalProps) 
                 </div>
               )}
 
-              {/* 선택된 이미지 미리보기 */}
-              {selectedImages.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedImages.map((img, index) => (
-                    <div key={index} className="relative rounded-xl overflow-hidden border border-gray-200">
-                      <img
-                        src={img.url}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-28 object-cover"
-                      />
-                      <button
-                        onClick={() => setSelectedImages(selectedImages.filter((_, i) => i !== index))}
-                        className="absolute top-1.5 right-1.5 p-1 bg-black/60 rounded-lg hover:bg-black/80 transition-colors"
-                      >
-                        <X className="w-3 h-3 text-white" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              {/* 이미지 업로더 */}
+              {!tweetId && (
+                <ImageUploader onChange={setImageItems} />
               )}
             </div>
           </div>
         </div>
 
         {/* 하단 액션 바 */}
-        <div className="border-t border-gray-200 px-5 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleImageChange}
-              />
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                disabled={!!tweetId || selectedImages.length >= 4}
-                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs transition-colors ${
-                  tweetId || selectedImages.length >= 4
-                    ? "border-gray-100 text-gray-300 cursor-not-allowed"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                }`}
-                title={
-                  tweetId
-                    ? "트위터 임베드 사용 중"
-                    : selectedImages.length >= 4
-                    ? "최대 4장까지 업로드 가능"
-                    : "이미지 추가"
-                }
-              >
-                <Image className="w-3.5 h-3.5" />
-                <span>사진 {selectedImages.length > 0 ? `${selectedImages.length}/4` : "추가"}</span>
-              </button>
-            </div>
-
-            <button
-              onClick={handlePost}
-              disabled={!title.trim() || isSubmitting}
-              className={`px-5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                title.trim() && !isSubmitting
-                  ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "border border-gray-200 text-gray-300 cursor-not-allowed"
-              }`}
-            >
-              {isSubmitting ? "게시 중..." : "게시"}
-            </button>
-          </div>
+        <div className="border-t border-gray-200 px-5 py-3 flex justify-end">
+          <button
+            onClick={handlePost}
+            disabled={!title.trim() || isSubmitting}
+            className={`px-5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              title.trim() && !isSubmitting
+                ? "bg-gray-900 text-white hover:bg-gray-800"
+                : "border border-gray-200 text-gray-300 cursor-not-allowed"
+            }`}
+          >
+            {isSubmitting ? "게시 중..." : "게시"}
+          </button>
         </div>
       </div>
     </div>

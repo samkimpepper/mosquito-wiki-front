@@ -1,5 +1,6 @@
 import { SwatchCard } from "../components/SwatchCard";
-import { TwitterEmbed } from "../components/TwitterEmbed";
+import { API_BASE } from "../../config";
+import { Tweet } from "react-tweet";
 import { BrandProductModal } from "../components/BrandProductModal";
 import { UploadModal } from "../components/UploadModal";
 import { ImageUploader } from "../components/ImageUploader";
@@ -48,9 +49,11 @@ export function ProductDetailPage() {
     officialImageUrls: string[];
     liked: boolean;
     likeCount: number;
+    swatchCount: number;
     tags: Tag[];
     otherOptions: OtherOptionProduct[];
   }
+
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const navigate = useNavigate();
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -69,6 +72,7 @@ export function ProductDetailPage() {
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
   const [isAddOptionModalOpen, setIsAddOptionModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isLiking, setIsLiking] = useState(false);
   const [editedCategory, setEditedCategory] = useState("");
   type ImageItem = { id: string; file: File | null; existingUrl: string | null } | null;
@@ -81,6 +85,8 @@ export function ProductDetailPage() {
   const [categories, setCategories] = useState<{ slug: string; name: string; }[]>([]);
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [copiedText, setCopiedText] = useState("");
+  const [swatchList, setSwatchList] = useState<{ id: number; sourceType: string; tweetUrl: string | null; images: string[]; name: string; description: string; likeCount: number; userProfile: { avatar: string; username: string; handle: string; date: string } }[]>([]);
+  const [swatchLoading, setSwatchLoading] = useState(false);
   
 
   const sortOptions = ["인기순 정렬", "최신순 정렬", "좋아요순 정렬", "북마크순 정렬"];
@@ -89,7 +95,7 @@ export function ProductDetailPage() {
 
     useEffect(() => {
       const fetchProduct = async () => {
-        const res = await fetch(`http://localhost:8080/api/product/${slug}`, {
+        const res = await fetch(`${API_BASE}/api/product/${slug}`, {
           credentials: "include"
         });
         const data = await res.json();
@@ -101,12 +107,62 @@ export function ProductDetailPage() {
     }, [slug]);
 
     useEffect(() => {
-      fetch('http://localhost:8080/api/category', {
+      fetch(`${API_BASE}/api/category`, {
         credentials: "include"
       })
         .then(res => res.json())
         .then((data: { slug: string; name: string; }[]) => setCategories(data));
     }, []);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxImage(null); };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxImage]);
+
+  useEffect(() => {
+    if (!slug) return;
+    setSwatchList([]);
+    const load = async () => {
+      setSwatchLoading(true);
+      try {
+        const url = `${API_BASE}/api/swatch?page=0&size=9&productSlug=${encodeURIComponent(slug)}`;
+        console.log("[ProductDetailPage] swatch fetch url:", url);
+        const res = await fetch(url, { credentials: "include" });
+        const data = await res.json();
+        console.log("[ProductDetailPage] swatch fetch response:", data);
+        setSwatchList(data.content.map((item: any) => {
+          const lines = (item.content ?? "").split("\n");
+          return {
+            id: item.id,
+            sourceType: item.sourceType,
+            tweetUrl: item.tweetUrl ?? null,
+            images: (item.images ?? []).map((img: string) => img.startsWith("http") ? img : `${API_BASE}${img}`),
+            name: lines[0] ?? "",
+            description: lines.slice(1).join("\n"),
+            likeCount: item.likeCount ?? 0,
+            userProfile: {
+              avatar: item.user?.profileImageUrl
+                ? item.user.profileImageUrl.startsWith("http")
+                  ? item.user.profileImageUrl
+                  : `${API_BASE}${item.user.profileImageUrl}`
+                : defaultProfile,
+              username: item.user?.name ?? "",
+              handle: item.user?.handle ?? "",
+              date: item.createdAt,
+            },
+          };
+        }));
+      } catch (e) {
+        console.error("[ProductDetailPage] swatch mapping error:", e);
+      } finally {
+        setSwatchLoading(false);
+      }
+    };
+    load();
+  }, [slug]);
+
 
   // 수정 모드 진입
   const handleEditClick = () => {
@@ -219,7 +275,7 @@ export function ProductDetailPage() {
       for (const item of editedProductImages) {
         if (!item) continue;
         if (item.id.startsWith("existing")) {
-          slots.push(item.existingUrl.replace("http://localhost:8080", ""));
+          slots.push(item.existingUrl.replace(API_BASE, ""));
         } else {
           slots.push(`NEW_${newFileIndex++}`);
           if (item.file) formData.append("newImages", item.file);
@@ -243,7 +299,7 @@ export function ProductDetailPage() {
 
       console.log(formData);
 
-      const res = await fetch(`http://localhost:8080/api/product/${slug}`, {
+      const res = await fetch(`${API_BASE}/api/product/${slug}`, {
           method: "PUT",
           credentials: "include",
           body: formData,
@@ -272,7 +328,7 @@ export function ProductDetailPage() {
     setIsLiking(true);
 
     try {
-        const res = await fetch(`http://localhost:8080/api/product/like/${slug}`, {
+        const res = await fetch(`${API_BASE}/api/product/like/${slug}`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -286,93 +342,9 @@ export function ProductDetailPage() {
 
   
 
-  // 뷰티 제품의 스와치 데이터
-  const swatches = [
-    {
-      id: 1,
-      images: ["https://images.unsplash.com/photo-1714420076326-476283c9fcfa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxudWRlJTIwbGlwc3RpY2slMjB0dWJlfGVufDF8fHx8MTc3MjYwMTQwMXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"],
-      name: "01 소프트 누드",
-      description: "일상에 잘 어울리는 부드러운 누드 베이지 톤. 어떤 메이크업에도 자연스럽게 매치됩니다.",
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1722270608841-35d7372a2e85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0JTIwZmFjZSUyMHByb2ZpbGV8ZW58MXx8fHwxNzcyNjAyMDQxfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "지은",
-        date: "2026.03.01 14:20",
-      },
-    },
-    {
-      id: 2,
-      images: [
-        "https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaW5rJTIwbGlwc3RpY2slMjBjb3NtZXRpY3xlbnwxfHx8fDE3NzI2MDE0MDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1635263282145-253319c75fd4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3JhbCUyMGxpcHN0aWNrJTIwbWFrZXVwfGVufDF8fHx8MTc3MjYwMTQwNnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      name: "02 로맨틱 핑크",
-      description: "사랑스러운 핑크 컬러로 생기있는 입술을 연출. 촉촉하고 부드러운 발림성이 특징입니다.",
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1643646805556-350c057663dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGFzaWFuJTIwcG9ydHJhaXQlMjBzbWlsZXxlbnwxfHx8fDE3NzI1NzQzNjF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "수아",
-        date: "2026.03.02 10:15",
-      },
-    },
-    {
-      id: 3,
-      images: [
-        "https://images.unsplash.com/photo-1602260395251-0fe691861b56?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWQlMjBsaXBzdGljayUyMGJlYXV0eXxlbnwxfHx8fDE3NzI2MDE0MDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1563441811597-99b0960e4239?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiZXJyeSUyMGxpcHN0aWNrJTIwY29zbWV0aWN8ZW58MXx8fHwxNzcyNjAxNDA1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1585387047269-e66bf53002f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsaXBzdGljayUyMHN3YXRjaCUyMHBhbGV0dGV8ZW58MXx8fHwxNzcyNjAxNDAwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      name: "03 클래식 레드",
-      description: "시간이 지나도 변치 않는 클래식한 레드 컬러. 강렬하면서도 세련된 매력을 선사합니다.",
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1718113460570-45a11d4226db?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXQlMjBjYXN1YWx8ZW58MXx8fHwxNzcyNTI3MzcwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "민지",
-        date: "2026.03.02 16:45",
-      },
-    },
-    {
-      id: 4,
-      images: [
-        "https://images.unsplash.com/photo-1770364016601-39c645feea99?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcmFuZ2UlMjBsaXBzdGljayUyMGJlYXV0eXxlbnwxfHx8fDE3NzI2MDE0MDV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1764333746618-6285bf70db23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibHVzaCUyMHBvd2RlciUyMGNvbXBhY3R8ZW58MXx8fHwxNzcyNTEyMTA1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1770981667014-677a0bf91663?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXV2ZSUyMGxpcHN0aWNrJTIwdHViZXxlbnwxfHx8fDE3NzI2MDE0MDd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1583012279653-1575246476c0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYWtldXAlMjBleWVzaGFkb3clMjBwYWxldHRlfGVufDF8fHx8MTc3MjYwMTQwMHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      name: "04 코랄 오렌지",
-      description: "생기 넘치는 코랄 오렌지 컬러. 밝고 화사한 분위기를 연출하기에 완벽합니다.",
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1634052970539-224813476367?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnaXJsJTIwcG9ydHJhaXQlMjBiZWF1dHklMjBmYWNlfGVufDF8fHx8MTc3MjYwMjA0Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "서연",
-        date: "2026.03.03 09:30",
-      },
-    },
-    {
-      id: 5,
-      images: [
-        "https://images.unsplash.com/photo-1770981667014-677a0bf91663?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXV2ZSUyMGxpcHN0aWNrJTIwdHViZXxlbnwxfHx8fDE3NzI2MDE0MDd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        "https://images.unsplash.com/photo-1563441811597-99b0960e4239?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiZXJyeSUyMGxpcHN0aWNrJTIwY29zbWV0aWN8ZW58MXx8fHwxNzcyNjAxNDA1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      ],
-      name: "05 모브 베리",
-      description: "차분하면서도 개성 있는 모브 베리 컬러. 세련된 무드를 표현하고 싶을 때 추천합니다.",
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1655249493799-9cee4fe983bb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHBvcnRyYWl0JTIwcHJvZmVzc2lvbmFsJTIwaGVhZHNob3R8ZW58MXx8fHwxNzcyNDcyNzgzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "유진",
-        date: "2026.03.03 13:00",
-      },
-    },
-    {
-      id: 6,
-      images: ["https://images.unsplash.com/photo-1625093742435-6fa192b6fb10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaW5rJTIwbGlwc3RpY2slMjBjb3NtZXRpY3xlbnwxfHx8fDE3NzI2MDE0MDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"],
-      name: "06 피치 글로우",
-      description: "따뜻한 피치 톤으로 건강한 광채를 더해줍니다. 데일리룩에 잘 어울립니다.",
-      userProfile: {
-        avatar: "https://images.unsplash.com/photo-1680104072294-e9e15e26c5cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW4lMjBwb3J0cmFpdCUyMGZhY2UlMjBwcm9mZXNzaW9uYWx8ZW58MXx8fHwxNzcyNTM0NTg2fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-        username: "준호",
-        date: "2026.03.04 11:25",
-      },
-    },
-  ];
 if (!product) return <div>로딩중...</div>;
 const productImages = product.officialImageUrls;
-//const productImages = product.officialImageUrls.filter(Boolean).map(url => `http://localhost:8080${url}`) as string[];
+//const productImages = product.officialImageUrls.filter(Boolean).map(url => `${API_BASE}${url}`) as string[];
   return (
     <>
       <BrandProductModal
@@ -386,6 +358,27 @@ const productImages = product.officialImageUrls;
           onClose={() => setIsUploadModalOpen(false)}
           productSlug={product.slug}
       />
+
+      {/* 이미지 라이트박스 */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <img
+            src={lightboxImage}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+        </div>
+      )}
 
       {/* 스크롤바 커스텀 스타일 */}
       <style>{`
@@ -408,10 +401,17 @@ const productImages = product.officialImageUrls;
       `}</style>
 
       {/* 헤더 - 제품 메인 정보 */}
-      <div className="border-b border-gray-200">
+      <div>
         <div className="max-w-6xl mx-auto px-4">
           {/* 뒤로가기 버튼 */}
           <div className="py-2 flex items-center">
+            <button
+              onClick={() => navigate('/')}
+              className="p-1.5 hover:bg-gray-50 rounded-lg transition-colors mr-2"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-500" />
+            </button>
+
             {/* 카테고리 표시 */}
             {isEditMode ? (
               <select
@@ -430,15 +430,6 @@ const productImages = product.officialImageUrls;
                 // {product.category}
               </span>
             )}
-
-            <div className="w-px self-stretch bg-gray-200 mx-3 -my-2" />
-
-            <button
-              onClick={() => navigate('/')}
-              className="p-1.5 hover:bg-gray-50 rounded-lg transition-colors ml-auto"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-500" />
-            </button>
           </div>
 
           {/* 이미지 갤러리 + 다른 옵션 보기 */}
@@ -459,7 +450,7 @@ const productImages = product.officialImageUrls;
                       }`}
                     >
                       <img 
-                        src={`http://localhost:8080${image}`}
+                        src={`${API_BASE}${image}`}
                         alt={`제품 이미지 ${index + 1}`} 
                         className="w-full h-full object-cover"
                       />
@@ -473,17 +464,20 @@ const productImages = product.officialImageUrls;
                 {isEditMode ? (
                   <div className="ml-[76px]">
                     <ImageUploader
-                      initialImages={productImages.map((url, i) => ({ id: `existing-${i}`, url: 'http://localhost:8080' + url }))}
+                      initialImages={productImages.map((url, i) => ({ id: `existing-${i}`, url: API_BASE + url }))}
                       onChange={(items) => {
                         setEditedProductImages(items);
                       }}
                     />
                   </div>
                 ) : (
-                  <div className="h-[400px] bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden w-full">
-                    <img 
-                      src={`http://localhost:8080${productImages[selectedImageIndex]}`}
-                      alt="" 
+                  <div
+                    className="h-[400px] bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden w-full cursor-zoom-in"
+                    onClick={() => setLightboxImage(`${API_BASE}${productImages[selectedImageIndex]}`)}
+                  >
+                    <img
+                      src={`${API_BASE}${productImages[selectedImageIndex]}`}
+                      alt=""
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -514,13 +508,13 @@ const productImages = product.officialImageUrls;
                       <div className="absolute left-0 w-0.5 h-8 bg-gray-800 rounded-r" />
                     )}
                     <img
-                      src={option?.officialImageUrl ? `http://localhost:8080${option.officialImageUrl}` : defaultProfile}
+                      src={option?.officialImageUrl ? `${API_BASE}${option.officialImageUrl}` : defaultProfile}
                       alt={option.nameKo}
                       className="w-10 h-10 object-cover rounded-lg flex-shrink-0 border border-gray-100"
                     />
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs truncate ${option.isCurrent ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-                        {option.nameKo}
+                        {option.brandNameKo} {option.nameKo}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5 truncate">
                         {option.optionNameKo}
@@ -632,6 +626,7 @@ const productImages = product.officialImageUrls;
               ) : (
                 <div className="mb-3">
                   <div className="flex items-center gap-2">
+                    <span className="text-3xl">{product.brandNameKo}</span>
                     <h1 className="text-3xl">{product.nameKo}</h1>
                     <span className="text-3xl text-gray-400">-</span>
                     <p className="text-3xl">{product.optionNameKo}</p>
@@ -764,11 +759,11 @@ const productImages = product.officialImageUrls;
               )}
               
               {/* 아이콘 섹션 */}
-              <div className="flex items-center gap-4 py-4 mb-4 border-y border-gray-200 justify-between">
+              <div className="flex items-center gap-4 py-4 mb-4 border-t border-gray-200 justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5 text-gray-400">
                     <Image className="w-4 h-4" />
-                    <span className="text-xs">142</span>
+                    <span className="text-xs">{product.swatchCount}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -812,17 +807,19 @@ const productImages = product.officialImageUrls;
                 </div>
 
                 {/* 복사/수정 버튼 */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                   <button
-                    onClick={() => handleCopyText(`${product.nameKo} ${product.optionNameKo}`)}
-                    className="p-1.5 hover:bg-gray-50 rounded-lg transition-colors"
+                    onClick={() => handleCopyText(`${product.brandNameKo} ${product.nameKo} ${product.optionNameKo}`)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
                     title="제품명과 옵션명 복사"
                   >
-                    <Copy className="w-4 h-4 text-gray-400" />
+                    <Copy className="w-3.5 h-3.5 text-gray-500" />
+                    <span className="text-xs text-gray-500">복사</span>
                   </button>
+                  <div className="w-px self-stretch bg-gray-200" />
                   <button
                     onClick={handleEditClick}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 transition-colors"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-gray-500" />
                     <span className="text-xs text-gray-500">수정</span>
@@ -832,17 +829,17 @@ const productImages = product.officialImageUrls;
 
               {/* 브랜드 정보 */}
               <button
-                onClick={() => navigate('/brand')}
+                onClick={() => navigate(`/brand/${product.brandSlug}`)}
                 className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all w-fit"
               >
                 <img
-                  src={`http://localhost:8080${product.brandLogoUrl}`}
+                  src={`${API_BASE}${product.brandLogoUrl}`}
                   alt="브랜드 로고"
                   className="w-8 h-8 object-cover rounded-lg border border-gray-100"
                 />
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-800">나스</p>
-                  <p className="text-xs text-gray-400">NARS</p>
+                  <p className="text-sm font-medium text-gray-800">{product.brandNameKo}</p>
+                  <p className="text-xs text-gray-400">{product.brandName}</p>
                 </div>
               </button>
             </div>
@@ -853,12 +850,13 @@ const productImages = product.officialImageUrls;
       {/* 스와치 카드 그리드 */}
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
-          <h2 className="text-xs font-semibold tracking-widest text-gray-400 uppercase">// 컬러 선택</h2>
+          <h2 className="text-sm font-semibold text-gray-700">// 발색샷 보기</h2>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
+              style={{ border: "1px solid #AE4DFF", background: "#F5E6FF", color: "#AE4DFF" }}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>스와치 추가</span>
@@ -894,41 +892,56 @@ const productImages = product.officialImageUrls;
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {swatches.slice(0, 2).map((swatch) => (
-            <SwatchCard
-              key={swatch.id}
-              images={swatch.images}
-              name={swatch.name}
-              description={swatch.description}
-              userProfile={swatch.userProfile}
-            />
-          ))}
-          
-          {/* 트위터 임베드 카드 */}
-          <TwitterEmbed
-            username="모기모기초"
-            handle="mogimogi098"
-            isVerified={true}
-            content={`사진을 대충 찍긴 했는데
-쥬디님칼레션 있으면 뭔가 되게 귀엽고(저말고요) 있어보여서(?) 애용합니다..
-오시탑말 색 가족팀들 노리는중..`}
-            images={swatches[2].images}
-            timestamp="1:56 PM · Mar 4, 2026"
-            likes={1}
-            userProfile={swatches[2].userProfile.avatar}
-          />
-          
-          {swatches.slice(3).map((swatch) => (
-            <SwatchCard
-              key={swatch.id}
-              images={swatch.images}
-              name={swatch.name}
-              description={swatch.description}
-              userProfile={swatch.userProfile}
-            />
-          ))}
-        </div>
+        {swatchList.length === 0 && !swatchLoading ? (
+          <p className="text-xs text-gray-400 py-8 text-center">등록된 발색샷이 없습니다.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {swatchList.map((swatch) =>
+                swatch.sourceType === "TWITTER" && swatch.tweetUrl ? (
+                  <div key={swatch.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    {/* 등록자 정보 */}
+                    <div className="px-3 py-2.5 flex items-center gap-2 border-b border-gray-100">
+                      <img
+                        src={swatch.userProfile.avatar}
+                        alt={swatch.userProfile.username}
+                        className="w-5 h-5 rounded-full object-cover"
+                      />
+                      <span className="text-xs font-medium text-gray-800">{swatch.userProfile.username}</span>
+                      <span className="text-xs text-gray-400 ml-auto">{swatch.userProfile.date}</span>
+                    </div>
+                    {/* 등록자 작성 내용 */}
+                    {(swatch.name || swatch.description) && (
+                      <p className="px-4 pt-2 pb-0 text-sm text-gray-700 whitespace-pre-wrap">
+                        {[swatch.name, swatch.description].filter(Boolean).join("\n")}
+                      </p>
+                    )}
+                    {/* 트위터 임베드 */}
+                    <div className="px-3 pt-1 pb-2 [&_.react-tweet-theme]:shadow-none [&_.react-tweet-theme]:border-0 [&_.react-tweet-theme]:rounded-none [&_.react-tweet-theme]:bg-transparent [&_.react-tweet-theme]:max-w-none [&_.react-tweet-theme]:p-0">
+                      <Tweet id={swatch.tweetUrl.match(/status(?:es)?\/(\d+)/)?.[1] ?? ""} />
+                    </div>
+                  </div>
+                ) : (
+                  <SwatchCard
+                    key={swatch.id}
+                    images={swatch.images}
+                    name={swatch.name}
+                    description={swatch.description}
+                    userProfile={swatch.userProfile}
+                  />
+                )
+              )}
+            </div>
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => navigate(`/swatch/${slug}`)}
+                className="px-5 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                더 보기
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 저장 성공 모달 */}

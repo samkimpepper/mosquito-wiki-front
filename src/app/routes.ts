@@ -24,6 +24,10 @@ export const router = createBrowserRouter([
         Component: ProductDetailPage,
       },
       {
+        path: "swatch",
+        Component: SwatchDetailPage,
+      },
+      {
         path: "swatch/:id",
         Component: SwatchDetailPage,
       }

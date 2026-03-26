@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { API_BASE } from "../config";
 
 interface User {
     id: number;
@@ -18,9 +19,25 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+    const userRef = useRef<User | null>(null);
+
+    userRef.current = user;
 
     useEffect(() => {
-        fetch("http://localhost:8080/api/auth/me", {
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const res = await originalFetch(...args);
+            if (res.status === 401 && userRef.current !== null) {
+                setUser(null);
+                window.location.href = "/";
+            }
+            return res;
+        };
+        return () => { window.fetch = originalFetch; };
+    }, []);
+
+    useEffect(() => {
+        fetch(`${API_BASE}/api/auth/me`, {
         credentials: "include"
         })
         .then(res => res.ok ? res.json() : null)
@@ -38,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const logout = () => {
-        fetch("http://localhost:8080/logout", {
+        fetch(`${API_BASE}/logout`, {
             method: "POST",
             credentials: "include"
         }).then(() => {

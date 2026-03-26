@@ -1,5 +1,13 @@
-
- private String productSlug;
-    private String content;
-    private SourceType sourceType; // SourceType은 ENUM인데, 문자열 UPLOAD, TWITTER 둘중하나임
-    private String tweetUrl;
+    private String slug;
+    private List<String> officialImageUrls;
+    private String name;
+    private String nameKo;
+    private String optionName;
+    private String optionNameKo;
+    private String brandSlug;
+    private String brandName;
+    private String brandNameKo;
+    private long swatchCount;
+    private long likeCount;
+    private long viewCount;
+    private UserThumbnailResponse user;

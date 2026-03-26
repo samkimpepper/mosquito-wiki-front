@@ -1,4 +1,5 @@
 import { X, ChevronDown, Plus, Search } from "lucide-react";
+import { API_BASE } from "../../config";
 import { useState, useEffect } from "react";
 import { useRef } from "react";
 import { useNavigate } from "react-router";
@@ -14,7 +15,13 @@ interface BrandProductModalProps {
 
 export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selectedProductSlug }: BrandProductModalProps) {
   const navigate = useNavigate();
-  
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    if (isOpen) document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const [modalType, setModalType] = useState<"브랜드" | "제품">("브랜드");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -57,21 +64,21 @@ export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selected
 
   useEffect(() => {
     if (selectedBrandSlug) {
-      fetch(`http://localhost:8080/api/brand/info/${encodeURIComponent(selectedBrandSlug)}`, {
+      fetch(`${API_BASE}/api/brand/info/${encodeURIComponent(selectedBrandSlug)}`, {
         credentials: "include"
       })
       .then(res => res.json())
       .then(data => setSelectedBrand({
         ...data,
-        logo: `http://localhost:8080${data.logoUrl}`
+        logo: `${API_BASE}${data.logoUrl}`
       }));
     }
 
-    const fetchCategories = fetch('http://localhost:8080/api/category', { credentials: "include" })
+    const fetchCategories = fetch(`${API_BASE}/api/category`, { credentials: "include" })
       .then(res => res.json());
 
     const fetchProduct = selectedProductSlug
-      ? fetch(`http://localhost:8080/api/product/info/${encodeURIComponent(selectedProductSlug)}`, { credentials: "include" })
+      ? fetch(`${API_BASE}/api/product/info/${encodeURIComponent(selectedProductSlug)}`, { credentials: "include" })
           .then(res => res.json())
       : Promise.resolve(null);
 
@@ -97,13 +104,13 @@ export function BrandProductModal({ isOpen, onClose, selectedBrandSlug, selected
 
 
   const timer = setTimeout(async () => {
-    const res = await fetch(`http://localhost:8080/api/brand/search?keyword=${encodeURIComponent(brandSearchQuery)}`, {
+    const res = await fetch(`${API_BASE}/api/brand/search?keyword=${encodeURIComponent(brandSearchQuery)}`, {
       credentials: "include"
     });
     const data = await res.json();
     setBrandResults(data.map((item: any) => ({
         ...item,
-        logo: item.logoUrl ? `http://localhost:8080${item.logoUrl}` : defaultProfile
+        logo: item.logoUrl ? `${API_BASE}${item.logoUrl}` : defaultProfile
     })));
   }, 150); // 타이핑 멈추고 300ms 후 요청
 
@@ -119,13 +126,13 @@ useEffect(() => {
   }
 
   const timer = setTimeout(async () => {
-    const res = await fetch(`http://localhost:8080/api/product/search?keyword=${encodeURIComponent(productSearchQuery)}`, {
+    const res = await fetch(`${API_BASE}/api/product/search?keyword=${encodeURIComponent(productSearchQuery)}`, {
       credentials: "include"
     });
     const data = await res.json();
     setProductResults(data.map((item: any) => ({
         ...item,
-        image: item.image ? `http://localhost:8080${item.image}` : defaultProfile,
+        image: item.image ? `${API_BASE}${item.image}` : defaultProfile,
     })));
   }, 150);
 
@@ -169,7 +176,7 @@ useEffect(() => {
         const file = logoInputRef.current?.files?.[0];
         if (file) formData.append("image", file);
 
-        const res = await fetch("http://localhost:8080/api/brand", {
+        const res = await fetch(`${API_BASE}/api/brand`, {
           method: "POST",
           credentials: "include",
           body: formData,
@@ -205,7 +212,7 @@ useEffect(() => {
         //const file = swatchInputRef.current?.files?.[0];
         //if (file) formData.append("image", file);
 
-        const res = await fetch("http://localhost:8080/api/product", {
+        const res = await fetch(`${API_BASE}/api/product`, {
           method: "POST",
           credentials: "include",
           body: formData,
@@ -446,7 +453,7 @@ useEffect(() => {
                     <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                       <div className="flex items-center gap-3">
                         <img
-                          src={`http://localhost:8080${selectedProduct.image}`}
+                          src={`${API_BASE}${selectedProduct.image}`}
                           alt={selectedProduct.nameKo}
                           className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
                         />
@@ -486,7 +493,7 @@ useEffect(() => {
                                 onClick={() => { setSelectedProduct(product); setProductNameKo(product.nameKo); setProductNameEn(product.nameEn); setProductSearchQuery(""); setShowProductResults(false); }}
                                 className="w-full text-left px-4 py-2.5 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3 hover:bg-gray-50"
                               >
-                                <img src={`http://localhost:8080${product.image}`} alt={product.nameKo} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
+                                <img src={`${API_BASE}${product.image}`} alt={product.nameKo} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs font-medium text-gray-800 truncate">{product.nameKo}</p>
                                   <p className="text-xs text-gray-400 mt-0.5 truncate">{product.nameEn}</p>
